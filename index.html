@@ -394,5 +394,280 @@ $1,760 allocated toward budget categories.
 </div>
 </div>
 
+<script>
+
+// =========================
+// SETTINGS
+// =========================
+
+let settings = JSON.parse(localStorage.getItem("seshatSettings")) || {
+    regularRate: 27.81,
+    otMultiplier: 1.5,
+    dtMultiplier: 2,
+    mileageRate: 0.40,
+    taxRate: 24,
+    availabilityRate: 25
+};
+
+let payHistory =
+JSON.parse(localStorage.getItem("seshatHistory")) || [];
+
+// =========================
+// CALCULATE
+// =========================
+
+function calculatePayroll(){
+
+    const regular =
+        Number(document.getElementById("regularHours")?.value) || 0;
+
+    const ot =
+        Number(document.getElementById("otHours")?.value) || 0;
+
+    const dt =
+        Number(document.getElementById("doubleTimeHours")?.value) || 0;
+
+    const callin =
+        Number(document.getElementById("callInHours")?.value) || 0;
+
+    const avail =
+        Number(document.getElementById("availabilityUnits")?.value) || 0;
+
+    const km =
+        Number(document.getElementById("kilometers")?.value) || 0;
+
+    const regularPay =
+        regular * settings.regularRate;
+
+    const otPay =
+        ot *
+        settings.regularRate *
+        settings.otMultiplier;
+
+    const dtPay =
+        dt *
+        settings.regularRate *
+        settings.dtMultiplier;
+
+    const callinPay =
+        callin * settings.regularRate;
+
+    const availabilityPay =
+        avail *
+        settings.availabilityRate;
+
+    const mileagePay =
+        km *
+        settings.mileageRate;
+
+    const gross =
+        regularPay +
+        otPay +
+        dtPay +
+        callinPay +
+        availabilityPay;
+
+    const taxes =
+        gross *
+        (settings.taxRate / 100);
+
+    const net =
+        gross -
+        taxes +
+        mileagePay;
+
+    updateDashboard(
+        gross,
+        net,
+        taxes,
+        mileagePay
+    );
+
+    return {
+        gross,
+        net,
+        taxes,
+        mileagePay,
+        regular,
+        ot,
+        dt,
+        callin,
+        km,
+        avail
+    };
+}
+
+// =========================
+// UPDATE DASHBOARD
+// =========================
+
+function updateDashboard(
+    gross,
+    net,
+    taxes,
+    mileage
+){
+
+    document.getElementById("grossPay")
+        .innerText =
+        "$" + gross.toFixed(2);
+
+    document.getElementById("netPay")
+        .innerText =
+        "$" + net.toFixed(2);
+
+    document.getElementById("mileagePay")
+        .innerText =
+        "$" + mileage.toFixed(2);
+
+    document.getElementById("taxRateDisplay")
+        .innerText =
+        settings.taxRate + "%";
+
+    document.getElementById("estimatedDeposit")
+        .innerText =
+        "$" + net.toFixed(2);
+}
+
+// =========================
+// SAVE PAY PERIOD
+// =========================
+
+function savePayPeriod(){
+
+    const result =
+        calculatePayroll();
+
+    const record = {
+        date:
+            new Date().toLocaleDateString(),
+        gross:
+            result.gross,
+        net:
+            result.net,
+        tax:
+            result.taxes,
+        mileage:
+            result.mileagePay,
+        regular:
+            result.regular,
+        overtime:
+            result.ot
+    };
+
+    payHistory.unshift(record);
+
+    localStorage.setItem(
+        "seshatHistory",
+        JSON.stringify(payHistory)
+    );
+
+    renderHistory();
+}
+
+// =========================
+// PAY HISTORY
+// =========================
+
+function renderHistory(){
+
+    const historyBody =
+    document.getElementById("historyBody");
+
+    if(!historyBody) return;
+
+    historyBody.innerHTML = "";
+
+    payHistory.forEach((record,index)=>{
+
+        historyBody.innerHTML += `
+        <tr>
+            <td>${record.date}</td>
+            <td>$${record.gross.toFixed(2)}</td>
+            <td>$${record.net.toFixed(2)}</td>
+            <td>$${record.mileage.toFixed(2)}</td>
+            <td>
+                <button
+                  onclick="deleteRecord(${index})">
+                  Delete
+                </button>
+            </td>
+        </tr>
+        `;
+    });
+}
+
+function deleteRecord(index){
+
+    payHistory.splice(index,1);
+
+    localStorage.setItem(
+        "seshatHistory",
+        JSON.stringify(payHistory)
+    );
+
+    renderHistory();
+}
+
+// =========================
+// EXPORT CSV
+// =========================
+
+function exportHistory(){
+
+    let csv =
+    "Date,Gross,Net,Mileage\n";
+
+    payHistory.forEach(r =>{
+
+        csv +=
+        `${r.date},${r.gross},${r.net},${r.mileage}\n`;
+
+    });
+
+    const blob =
+    new Blob([csv],{
+        type:"text/csv"
+    });
+
+    const a =
+    document.createElement("a");
+
+    a.href =
+    URL.createObjectURL(blob);
+
+    a.download =
+    "pay-history.csv";
+
+    a.click();
+}
+
+// =========================
+// LIVE UPDATES
+// =========================
+
+document.addEventListener(
+"DOMContentLoaded",
+function(){
+
+    document
+    .querySelectorAll("input")
+    .forEach(input=>{
+
+        input.addEventListener(
+            "input",
+            calculatePayroll
+        );
+
+    });
+
+    calculatePayroll();
+
+    renderHistory();
+
+});
+
+</script>
+    
 </body>
 </html>
