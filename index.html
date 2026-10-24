@@ -371,6 +371,63 @@ supabase.createClient(
     SUPABASE_URL,
     SUPABASE_KEY
 );
+
+async function signUp(){
+
+    const email =
+    document.getElementById("email").value;
+
+    const password =
+    document.getElementById("password").value;
+
+    const { error } =
+    await supabaseClient.auth.signUp({
+        email,
+        password
+    });
+
+    if(error){
+        alert(error.message);
+        return;
+    }
+
+    alert("Account created successfully.");
+}
+
+async function signIn(){
+
+    const email =
+    document.getElementById("email").value;
+
+    const password =
+    document.getElementById("password").value;
+
+    const { error } =
+    await supabaseClient.auth.signInWithPassword({
+        email,
+        password
+    });
+
+    if(error){
+        alert(error.message);
+        return;
+    }
+
+    alert("Successfully signed in.");
+}
+
+async function signOut(){
+
+    const { error } =
+    await supabaseClient.auth.signOut();
+
+    if(error){
+        alert(error.message);
+        return;
+    }
+
+    alert("Signed out.");
+}
     
 let settings = {
     regularRate:27.81,
