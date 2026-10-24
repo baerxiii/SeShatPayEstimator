@@ -358,6 +358,8 @@ th,td{
 
 </div>
 
+</div>
+    
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
 <script>
@@ -415,6 +417,9 @@ async function signIn(){
         return;
     }
 
+    document.getElementById("app")
+        .style.display = "block";
+
     alert("Successfully signed in.");
 }
 
@@ -428,7 +433,29 @@ async function signOut(){
         return;
     }
 
+    document.getElementById("app")
+        .style.display = "none";
+
     alert("Signed out.");
+}
+
+async function checkSession(){
+
+    const {
+        data: { session }
+    } = await supabaseClient.auth.getSession();
+
+    if(session){
+
+        document.getElementById("app")
+            .style.display = "block";
+
+    } else {
+
+        document.getElementById("app")
+            .style.display = "none";
+
+    }
 }
     
 let settings = {
@@ -714,6 +741,8 @@ document
         calculatePayroll
     );
 });
+
+checkSession();
 
 calculatePayroll();
 renderHistory();
