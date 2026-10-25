@@ -425,105 +425,186 @@ th,td{
 </div>
 
 </div>
-    
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.305/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
+
 <script>
 
-pdfjsLib.GlobalWorkerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.305/pdf.worker.min.js';
+const SUPABASE_URL = 'https://cujvvxyadxvlfvhgzlki.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_wogqNQurYqmvOx9FvoFxMQ_XyRMTxZ_';
+let supabaseClient = null;
 
-const SUPABASE_URL =
-'https://cujvvxyadxvlfvhgzlki.supabase.co';
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${src}"]`);
+        if (existing) {
+            if (existing.dataset.loaded === 'true') {
+                resolve();
+                return;
+            }
+            existing.addEventListener('load', () => resolve(), { once: true });
+            existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+            return;
+        }
 
-const SUPABASE_KEY =
-'sb_publishable_wogqNQurYqmvOx9FvoFxMQ_XyRMTxZ_';
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.onload = () => {
+            script.dataset.loaded = 'true';
+            resolve();
+        };
+        script.onerror = () => reject(new Error(`Failed to load ${src}`));
+        document.head.appendChild(script);
+    });
+}
 
-const supabaseClient =
-    supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_KEY
-    );
+async function ensureSupabaseLoaded() {
+    if (window.supabase && window.supabase.createClient) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        return true;
+    }
+
+    try {
+        await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+    } catch (error) {
+        console.error('Supabase failed to load:', error);
+        return false;
+    }
+
+    if (window.supabase && window.supabase.createClient) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        return true;
+    }
+
+    return false;
+}
+
+async function ensurePdfJsLoaded() {
+    if (window.pdfjsLib) {
+        if (window.pdfjsLib.GlobalWorkerSrc) {
+            window.pdfjsLib.GlobalWorkerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.305/pdf.worker.min.js';
+        }
+        return true;
+    }
+
+    try {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.305/pdf.min.js');
+    } catch (error) {
+        console.error('PDF JS failed to load:', error);
+        return false;
+    }
+
+    if (window.pdfjsLib) {
+        window.pdfjsLib.GlobalWorkerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.305/pdf.worker.min.js';
+        return true;
+    }
+
+    return false;
+}
+
+async function ensureTesseractLoaded() {
+    if (window.Tesseract) {
+        return true;
+    }
+
+    try {
+        await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
+    } catch (error) {
+        console.error('Tesseract failed to load:', error);
+        return false;
+    }
+
+    return !!window.Tesseract;
+}
 
 async function signUp(){
+    if (!supabaseClient) {
+        const loaded = await ensureSupabaseLoaded();
+        if (!loaded) {
+            alert('Supabase library could not be loaded. Please refresh and try again.');
+            return;
+        }
+    }
 
-    const email =
-    document.getElementById("email").value;
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
 
-    const password =
-    document.getElementById("password").value;
-
-    const { error } =
-    await supabaseClient.auth.signUp({
-        email,
-        password
-    });
+    const { error } = await supabaseClient.auth.signUp({ email, password });
 
     if(error){
         alert(error.message);
         return;
     }
 
-    alert("Account created successfully.");
+    alert('Account created successfully.');
 }
 
 async function signIn(){
+    if (!supabaseClient) {
+        const loaded = await ensureSupabaseLoaded();
+        if (!loaded) {
+            alert('Supabase library could not be loaded. Please refresh and try again.');
+            return;
+        }
+    }
 
-    const email =
-    document.getElementById("email").value;
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
 
-    const password =
-    document.getElementById("password").value;
-
-    const { error } =
-    await supabaseClient.auth.signInWithPassword({
-        email,
-        password
-    });
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
     if(error){
         alert(error.message);
         return;
     }
 
-    document.getElementById("loginPanel").style.display = "none";
-    document.getElementById("app").style.display = "block";
+    document.getElementById('loginPanel').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
 
-    alert("Successfully signed in.");
+    alert('Successfully signed in.');
 }
 
 async function signOut(){
+    if (!supabaseClient) {
+        const loaded = await ensureSupabaseLoaded();
+        if (!loaded) {
+            alert('Supabase library could not be loaded. Please refresh and try again.');
+            return;
+        }
+    }
 
-    const { error } =
-    await supabaseClient.auth.signOut();
+    const { error } = await supabaseClient.auth.signOut();
 
     if(error){
         alert(error.message);
         return;
     }
 
-    document.getElementById("app").style.display = "none";
-    document.getElementById("loginPanel").style.display = "block";
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('loginPanel').style.display = 'block';
 
-    alert("Signed out.");
+    alert('Signed out.');
 }
 
 async function checkSession(){
+    if (!supabaseClient) {
+        const loaded = await ensureSupabaseLoaded();
+        if (!loaded) {
+            document.getElementById('loginPanel').style.display = 'block';
+            document.getElementById('app').style.display = 'none';
+            return;
+        }
+    }
 
-    const {
-        data: { session }
-    } = await supabaseClient.auth.getSession();
-
-    const loginPanel = document.getElementById("loginPanel");
-    const app = document.getElementById("app");
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const loginPanel = document.getElementById('loginPanel');
+    const app = document.getElementById('app');
 
     if(session){
-        loginPanel.style.display = "none";
-        app.style.display = "block";
+        loginPanel.style.display = 'none';
+        app.style.display = 'block';
     } else {
-        loginPanel.style.display = "block";
-        app.style.display = "none";
+        loginPanel.style.display = 'block';
+        app.style.display = 'none';
     }
 }
 
@@ -536,23 +617,18 @@ let settings = {
     taxRate:24
 };
 
-let payHistory =
-JSON.parse(localStorage.getItem("payHistory"))
-|| [];
-
-let paystubs =
-JSON.parse(localStorage.getItem("paystubs"))
-|| [];
+let payHistory = JSON.parse(localStorage.getItem('payHistory')) || [];
+let paystubs = JSON.parse(localStorage.getItem('paystubs')) || [];
 
 function formatCurrency(value){
-    return "$" + Number(value || 0).toFixed(2);
+    return '$' + Number(value || 0).toFixed(2);
 }
 
 function parseCurrencyValue(rawValue){
-    if(rawValue === null || rawValue === undefined || rawValue === "") return 0;
+    if(rawValue === null || rawValue === undefined || rawValue === '') return 0;
     const cleaned = String(rawValue)
-        .replace(/[^0-9.\-]/g, "")
-        .replace(/(\..*)\./g, "$1")
+        .replace(/[^0-9.\-]/g, '')
+        .replace(/(\..*)\./g, '$1')
         .trim();
 
     const number = Number(cleaned);
@@ -560,9 +636,9 @@ function parseCurrencyValue(rawValue){
 }
 
 function normalizeText(text){
-    return (text || "")
-        .replace(/\r/g, "\n")
-        .replace(/\s+/g, " ")
+    return (text || '')
+        .replace(/\r/g, '\n')
+        .replace(/\s+/g, ' ')
         .trim();
 }
 
@@ -575,8 +651,8 @@ function findBestMatch(line, patterns){
 }
 
 function readLinesFromText(text){
-    return (text || "")
-        .replace(/\r/g, "\n")
+    return (text || '')
+        .replace(/\r/g, '\n')
         .split(/\n+/)
         .map(line => line.trim())
         .filter(Boolean);
@@ -646,55 +722,60 @@ function extractPaystubFieldsFromText(text){
 }
 
 async function readPdfText(file){
-    if(!window.pdfjsLib){
-        throw new Error("PDF parser is not loaded.");
+    const pdfReady = await ensurePdfJsLoaded();
+    if(!pdfReady || !window.pdfjsLib){
+        throw new Error('PDF parser is not available.');
     }
 
     const fileBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: fileBuffer }).promise;
+    const pdf = await window.pdfjsLib.getDocument({ data: fileBuffer }).promise;
 
-    let fullText = "";
+    let fullText = '';
 
     for(let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++){
         const page = await pdf.getPage(pageNumber);
         const content = await page.getTextContent();
         const pageText = content.items
             .map(item => item.str)
-            .join(" ");
-        fullText += pageText + "\n";
+            .join(' ');
+        fullText += pageText + '\n';
     }
 
     return fullText;
 }
 
 async function ocrImageFile(file){
-    if(!window.Tesseract){
-        throw new Error("OCR library is not loaded.");
+    const ready = await ensureTesseractLoaded();
+    if(!ready || !window.Tesseract){
+        throw new Error('OCR library is not available.');
     }
 
     const imageUrl = URL.createObjectURL(file);
     try {
-        const { data } = await Tesseract.recognize(imageUrl, 'eng', {
+        const { data } = await window.Tesseract.recognize(imageUrl, 'eng', {
             logger: m => {
                 if(m && m.status === 'recognizing text') {
                     console.log(m.progress);
                 }
             }
         });
-        return data.text || "";
+        return data.text || '';
     } finally {
         URL.revokeObjectURL(imageUrl);
     }
 }
 
 async function ocrScannedPdf(file){
-    if(!window.pdfjsLib || !window.Tesseract){
-        throw new Error("PDF or OCR libraries are not loaded.");
+    const pdfReady = await ensurePdfJsLoaded();
+    const ocrReady = await ensureTesseractLoaded();
+
+    if(!pdfReady || !ocrReady || !window.pdfjsLib || !window.Tesseract){
+        throw new Error('PDF and OCR libraries are not available.');
     }
 
     const fileBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: fileBuffer }).promise;
-    let allText = "";
+    const pdf = await window.pdfjsLib.getDocument({ data: fileBuffer }).promise;
+    let allText = '';
 
     for(let pageNumber = 1; pageNumber <= Math.min(pdf.numPages, 3); pageNumber++){
         const page = await pdf.getPage(pageNumber);
@@ -706,8 +787,8 @@ async function ocrScannedPdf(file){
 
         await page.render({ canvasContext: context, viewport }).promise;
 
-        const { data } = await Tesseract.recognize(canvas, 'eng');
-        allText += (data.text || "") + "\n";
+        const { data } = await window.Tesseract.recognize(canvas, 'eng');
+        allText += (data.text || '') + '\n';
     }
 
     return allText;
@@ -717,9 +798,9 @@ function updateBiweeklyProjection(){
     const validStubs = paystubs.filter(stub => Number(stub.gross) > 0);
 
     if(validStubs.length === 0){
-        document.getElementById("biweeklyGross").textContent = "$0.00";
-        document.getElementById("biweeklyDeduction").textContent = "$0.00";
-        document.getElementById("biweeklyNet").textContent = "$0.00";
+        document.getElementById('biweeklyGross').textContent = '$0.00';
+        document.getElementById('biweeklyDeduction').textContent = '$0.00';
+        document.getElementById('biweeklyNet').textContent = '$0.00';
         updateChequeEstimate();
         return;
     }
@@ -732,23 +813,23 @@ function updateBiweeklyProjection(){
     const avgTax = totalTax / validStubs.length;
     const avgNet = totalNet / validStubs.length;
 
-    document.getElementById("biweeklyGross").textContent = formatCurrency(avgGross);
-    document.getElementById("biweeklyDeduction").textContent = formatCurrency(avgTax);
-    document.getElementById("biweeklyNet").textContent = formatCurrency(avgNet);
+    document.getElementById('biweeklyGross').textContent = formatCurrency(avgGross);
+    document.getElementById('biweeklyDeduction').textContent = formatCurrency(avgTax);
+    document.getElementById('biweeklyNet').textContent = formatCurrency(avgNet);
 
-    document.getElementById("chequeGross").textContent = formatCurrency(avgGross);
-    document.getElementById("chequeDeduction").textContent = formatCurrency(avgTax);
-    document.getElementById("chequeNet").textContent = formatCurrency(avgNet);
-    document.getElementById("chequeRate").textContent = avgGross > 0 ? ((avgTax / avgGross) * 100).toFixed(2) + "%" : "0.00%";
+    document.getElementById('chequeGross').textContent = formatCurrency(avgGross);
+    document.getElementById('chequeDeduction').textContent = formatCurrency(avgTax);
+    document.getElementById('chequeNet').textContent = formatCurrency(avgNet);
+    document.getElementById('chequeRate').textContent = avgGross > 0 ? ((avgTax / avgGross) * 100).toFixed(2) + '%' : '0.00%';
 }
 
 function updateChequeEstimate(){
     const validStubs = paystubs.filter(stub => Number(stub.gross) > 0);
     if(validStubs.length === 0){
-        document.getElementById("chequeGross").textContent = "$0.00";
-        document.getElementById("chequeDeduction").textContent = "$0.00";
-        document.getElementById("chequeNet").textContent = "$0.00";
-        document.getElementById("chequeRate").textContent = "0.00%";
+        document.getElementById('chequeGross').textContent = '$0.00';
+        document.getElementById('chequeDeduction').textContent = '$0.00';
+        document.getElementById('chequeNet').textContent = '$0.00';
+        document.getElementById('chequeRate').textContent = '0.00%';
         return;
     }
 
@@ -756,33 +837,33 @@ function updateChequeEstimate(){
     const avgTax = validStubs.reduce((sum, stub) => sum + Number(stub.tax || 0), 0) / validStubs.length;
     const avgNet = validStubs.reduce((sum, stub) => sum + Number(stub.net || 0), 0) / validStubs.length;
 
-    document.getElementById("chequeGross").textContent = formatCurrency(avgGross);
-    document.getElementById("chequeDeduction").textContent = formatCurrency(avgTax);
-    document.getElementById("chequeNet").textContent = formatCurrency(avgNet);
-    document.getElementById("chequeRate").textContent = avgGross > 0 ? ((avgTax / avgGross) * 100).toFixed(2) + "%" : "0.00%";
+    document.getElementById('chequeGross').textContent = formatCurrency(avgGross);
+    document.getElementById('chequeDeduction').textContent = formatCurrency(avgTax);
+    document.getElementById('chequeNet').textContent = formatCurrency(avgNet);
+    document.getElementById('chequeRate').textContent = avgGross > 0 ? ((avgTax / avgGross) * 100).toFixed(2) + '%' : '0.00%';
 }
 
 async function processPaystubPdfUpload(){
-    const file = document.getElementById("paystubPdfInput").files[0];
-    const statusEl = document.getElementById("pdfStatus");
+    const file = document.getElementById('paystubPdfInput').files[0];
+    const statusEl = document.getElementById('pdfStatus');
 
     if(!file){
-        statusEl.textContent = "Please choose a PDF or image file first.";
+        statusEl.textContent = 'Please choose a PDF or image file first.';
         return;
     }
 
-    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const isImage = file.type.startsWith('image/');
 
     if(!isPdf && !isImage){
-        statusEl.textContent = "Only PDF or image files are supported.";
+        statusEl.textContent = 'Only PDF or image files are supported.';
         return;
     }
 
-    statusEl.textContent = "Reading file and extracting values...";
+    statusEl.textContent = 'Reading file and extracting values...';
 
     try{
-        let extractedText = "";
+        let extractedText = '';
 
         if(isImage){
             extractedText = await ocrImageFile(file);
@@ -797,7 +878,7 @@ async function processPaystubPdfUpload(){
         const extracted = extractPaystubFieldsFromText(extractedText);
 
         if(!extracted.gross && !extracted.net && !extracted.tax){
-            throw new Error("Could not detect paystub values. Try a clearer PDF or image.");
+            throw new Error('Could not detect paystub values. Try a clearer PDF or image.');
         }
 
         const normalizedStub = {
@@ -806,44 +887,31 @@ async function processPaystubPdfUpload(){
             net: Number(extracted.net || 0),
             tax: Number(extracted.tax || Math.max(0, extracted.gross - extracted.net)),
             rate: Number(extracted.rate || 0),
-            source: isImage ? "image" : "pdf",
+            source: isImage ? 'image' : 'pdf',
             fileName: file.name
         };
 
         paystubs.unshift(normalizedStub);
-        localStorage.setItem("paystubs", JSON.stringify(paystubs));
+        localStorage.setItem('paystubs', JSON.stringify(paystubs));
 
         statusEl.textContent = `${file.name} analyzed: Gross ${formatCurrency(normalizedStub.gross)}, Net ${formatCurrency(normalizedStub.net)}, Deductions ${formatCurrency(normalizedStub.tax)}`;
 
         updateTaxLearning();
-        document.getElementById("paystubPdfInput").value = "";
+        document.getElementById('paystubPdfInput').value = '';
 
     } catch (error) {
-        statusEl.textContent = error.message || "Unable to read this file. Please upload a clearer paystub.";
+        statusEl.textContent = error.message || 'Unable to read this file. Please upload a clearer paystub.';
     }
 }
 
-// PAYROLL
-
 function calculatePayroll(){
 
-    let regular =
-    Number(regularHours.value)||0;
-
-    let ot =
-    Number(otHours.value)||0;
-
-    let dt =
-    Number(doubleTimeHours.value)||0;
-
-    let callIn =
-    Number(callInHours.value)||0;
-
-    let availability =
-    Number(availabilityUnits.value)||0;
-
-    let km =
-    Number(kilometers.value)||0;
+    let regular = Number(regularHours.value) || 0;
+    let ot = Number(otHours.value) || 0;
+    let dt = Number(doubleTimeHours.value) || 0;
+    let callIn = Number(callInHours.value) || 0;
+    let availability = Number(availabilityUnits.value) || 0;
+    let km = Number(kilometers.value) || 0;
 
     let gross =
         regular * settings.regularRate +
@@ -852,64 +920,36 @@ function calculatePayroll(){
         callIn * settings.regularRate +
         availability * settings.availabilityRate;
 
-    let mileage =
-    km * settings.mileageRate;
+    let mileage = km * settings.mileageRate;
+    let tax = gross * (settings.taxRate / 100);
+    let net = gross - tax + mileage;
 
-    let tax =
-    gross * (settings.taxRate / 100);
+    grossPay.textContent = '$' + gross.toFixed(2);
+    netPay.textContent = '$' + net.toFixed(2);
+    mileagePay.textContent = '$' + mileage.toFixed(2);
+    estimatedDeposit.textContent = '$' + net.toFixed(2);
 
-    let net =
-    gross - tax + mileage;
-
-    grossPay.textContent =
-    "$" + gross.toFixed(2);
-
-    netPay.textContent =
-    "$" + net.toFixed(2);
-
-    mileagePay.textContent =
-    "$" + mileage.toFixed(2);
-
-    estimatedDeposit.textContent =
-    "$" + net.toFixed(2);
-
-    return {
-        gross,
-        net,
-        mileage
-    };
+    return { gross, net, mileage };
 }
 
-// HISTORY
-
 function savePayPeriod(){
-
-    let pay =
-    calculatePayroll();
+    let pay = calculatePayroll();
 
     payHistory.unshift({
-
         date:new Date().toLocaleDateString(),
         gross:pay.gross,
         net:pay.net,
         mileage:pay.mileage
-
     });
 
-    localStorage.setItem(
-        "payHistory",
-        JSON.stringify(payHistory)
-    );
-
+    localStorage.setItem('payHistory', JSON.stringify(payHistory));
     renderHistory();
 }
 
 function renderHistory(){
+    historyBody.innerHTML = '';
 
-    historyBody.innerHTML = "";
-
-    payHistory.forEach((row,index)=>{
-
+    payHistory.forEach((row, index) => {
         historyBody.innerHTML += `
         <tr>
             <td>${row.date}</td>
@@ -917,113 +957,73 @@ function renderHistory(){
             <td>$${row.net.toFixed(2)}</td>
             <td>$${row.mileage.toFixed(2)}</td>
             <td>
-            <button class="small-btn"
-             onclick="deleteRecord(${index})">
-             X
-            </button>
+            <button class="small-btn" onclick="deleteRecord(${index})">X</button>
             </td>
         </tr>
         `;
     });
-
 }
 
 function deleteRecord(index){
-
-    payHistory.splice(index,1);
-
-    localStorage.setItem(
-        "payHistory",
-        JSON.stringify(payHistory)
-    );
-
+    payHistory.splice(index, 1);
+    localStorage.setItem('payHistory', JSON.stringify(payHistory));
     renderHistory();
 }
 
 function exportHistory(){
+    let csv = 'Date,Gross,Net,Mileage\n';
 
-    let csv =
-    "Date,Gross,Net,Mileage\n";
-
-    payHistory.forEach(r=>{
-
-        csv +=
-`${r.date},${r.gross},${r.net},${r.mileage}\n`;
-
+    payHistory.forEach(r => {
+        csv += `${r.date},${r.gross},${r.net},${r.mileage}\n`;
     });
 
-    let blob =
-    new Blob([csv],{type:"text/csv"});
-
-    let a =
-    document.createElement("a");
-
-    a.href =
-    URL.createObjectURL(blob);
-
-    a.download =
-    "pay-history.csv";
-
+    let blob = new Blob([csv], { type:'text/csv' });
+    let a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'pay-history.csv';
     a.click();
 }
 
-// TAX LEARNING
-
 function saveActualPaystub(){
-
-    let gross =
-    Number(actualGross.value);
-
-    let net =
-    Number(actualNet.value);
-
-    let tax =
-    Number(actualTax.value);
+    let gross = Number(actualGross.value);
+    let net = Number(actualNet.value);
+    let tax = Number(actualTax.value);
 
     if(!gross || !net || !tax){
-        alert("Complete all fields");
+        alert('Complete all fields');
         return;
     }
 
-    let rate =
-    (tax / gross) * 100;
+    let rate = (tax / gross) * 100;
 
     paystubs.unshift({
-
         date:new Date().toLocaleDateString(),
         gross,
         net,
         tax,
         rate,
-        source: "manual"
-
+        source:'manual'
     });
 
-    localStorage.setItem(
-        "paystubs",
-        JSON.stringify(paystubs)
-    );
-
-    actualGross.value="";
-    actualNet.value="";
-    actualTax.value="";
+    localStorage.setItem('paystubs', JSON.stringify(paystubs));
+    actualGross.value='';
+    actualNet.value='';
+    actualTax.value='';
 
     updateTaxLearning();
 }
 
 function updateTaxLearning(){
-
-    if(paystubs.length===0){
+    if(paystubs.length === 0){
         return;
     }
 
-    let totalRate=0;
-    let totalGross=0;
-    let totalNet=0;
-    let totalTax=0;
+    let totalRate = 0;
+    let totalGross = 0;
+    let totalNet = 0;
+    let totalTax = 0;
 
-    paystubs.forEach(stub=>{
-
+    paystubs.forEach(stub => {
         const gross = Number(stub.gross || 0);
         const net = Number(stub.net || 0);
         const tax = Number(stub.tax || Math.max(0, gross - net));
@@ -1033,52 +1033,31 @@ function updateTaxLearning(){
         totalGross += gross;
         totalNet += net;
         totalTax += tax;
-
     });
 
-    let learnedRate =
-    totalRate / paystubs.length;
+    let learnedRate = totalRate / paystubs.length;
+    settings.taxRate = learnedRate;
 
-    settings.taxRate =
-    learnedRate;
-
-    stubCount.textContent =
-    paystubs.length;
-
-    document.getElementById(
-        "learnedRate"
-    ).textContent =
-    learnedRate.toFixed(2)+"%";
-
-    avgGross.textContent =
-    "$" +
-    (totalGross/paystubs.length)
-    .toFixed(2);
-
-    avgNet.textContent =
-    "$" +
-    (totalNet/paystubs.length)
-    .toFixed(2);
-
-    taxRateDisplay.textContent =
-    learnedRate.toFixed(2)+"%";
+    stubCount.textContent = paystubs.length;
+    document.getElementById('learnedRate').textContent = learnedRate.toFixed(2) + '%';
+    avgGross.textContent = '$' + (totalGross / paystubs.length).toFixed(2);
+    avgNet.textContent = '$' + (totalNet / paystubs.length).toFixed(2);
+    taxRateDisplay.textContent = learnedRate.toFixed(2) + '%';
 
     renderPaystubHistory();
     updateBiweeklyProjection();
     calculatePayroll();
 
-    document.getElementById("chequeGross").textContent = formatCurrency(totalGross / paystubs.length);
-    document.getElementById("chequeDeduction").textContent = formatCurrency(totalTax / paystubs.length);
-    document.getElementById("chequeNet").textContent = formatCurrency(totalNet / paystubs.length);
-    document.getElementById("chequeRate").textContent = learnedRate.toFixed(2) + "%";
+    document.getElementById('chequeGross').textContent = formatCurrency(totalGross / paystubs.length);
+    document.getElementById('chequeDeduction').textContent = formatCurrency(totalTax / paystubs.length);
+    document.getElementById('chequeNet').textContent = formatCurrency(totalNet / paystubs.length);
+    document.getElementById('chequeRate').textContent = learnedRate.toFixed(2) + '%';
 }
 
 function renderPaystubHistory(){
+    paystubHistory.innerHTML = '';
 
-    paystubHistory.innerHTML = "";
-
-    paystubs.forEach(stub=>{
-
+    paystubs.forEach(stub => {
         const gross = Number(stub.gross || 0);
         const net = Number(stub.net || 0);
         const tax = Number(stub.tax || Math.max(0, gross - net));
@@ -1094,22 +1073,13 @@ function renderPaystubHistory(){
         </tr>
         `;
     });
-
 }
 
-// STARTUP
-
-document
-.querySelectorAll("input")
-.forEach(input=>{
-    input.addEventListener(
-        "input",
-        calculatePayroll
-    );
+document.querySelectorAll('input').forEach(input => {
+    input.addEventListener('input', calculatePayroll);
 });
 
 checkSession();
-
 calculatePayroll();
 renderHistory();
 updateTaxLearning();
