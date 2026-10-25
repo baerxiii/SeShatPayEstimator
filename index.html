@@ -75,7 +75,7 @@ h1{
     margin-bottom:20px;
 }
 
-input{
+input[type="number"], input[type="email"], input[type="password"], input[type="file"]{
     width:100%;
     padding:12px;
     margin-top:5px;
@@ -121,6 +121,12 @@ th,td{
     font-size:24px;
     font-weight:bold;
     margin-top:8px;
+}
+
+.pdf-status{
+    margin-top:12px;
+    color:var(--muted);
+    font-size:14px;
 }
 
 @media(max-width:900px){
@@ -279,6 +285,37 @@ th,td{
 
 <div class="card">
 
+    <h2 class="section-title">📄 Upload Paystub PDF</h2>
+
+    <input id="paystubPdfInput" type="file" accept="application/pdf">
+
+    <button onclick="processPaystubPdfUpload()">
+        Analyze Paystub PDF
+    </button>
+
+    <div id="pdfStatus" class="pdf-status">No PDF analyzed yet.</div>
+
+    <div class="grid" style="margin-top:20px;">
+        <div>
+            <div class="stat" id="biweeklyGross">$0.00</div>
+            <div>Avg Gross / 2 Weeks</div>
+        </div>
+        <div>
+            <div class="stat" id="biweeklyDeduction">$0.00</div>
+            <div>Avg Deduction / 2 Weeks</div>
+        </div>
+        <div>
+            <div class="stat" id="biweeklyNet">$0.00</div>
+            <div>Avg Net / 2 Weeks</div>
+        </div>
+    </div>
+
+</div>
+
+<br>
+
+<div class="card">
+
     <h2 class="section-title">📋 Actual Paystub Entry</h2>
 
     <label>Actual Gross Pay</label>
@@ -360,6 +397,7 @@ th,td{
 
 </div>
     
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.305/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
 <script>
@@ -371,10 +409,10 @@ const SUPABASE_KEY =
 'sb_publishable_wogqNQurYqmvOx9FvoFxMQ_XyRMTxZ_';
 
 const supabaseClient =
-supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY
-);
+    supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    );
 
 async function signUp(){
 
@@ -457,7 +495,7 @@ async function checkSession(){
 
     }
 }
-    
+
 let settings = {
     regularRate:27.81,
     otMultiplier:1.5,
@@ -474,6 +512,164 @@ JSON.parse(localStorage.getItem("payHistory"))
 let paystubs =
 JSON.parse(localStorage.getItem("paystubs"))
 || [];
+
+function formatCurrency(value){
+    return "$" + Number(value || 0).toFixed(2);
+}
+
+function parseCurrencyValue(rawValue){
+    if(rawValue === null || rawValue === undefined || rawValue === "") return 0;
+    const cleaned = String(rawValue)
+        .replace(/[^0-9.\-]/g, "")
+        .replace(/(\..*)\./g, "$1")
+        .trim();
+
+    const number = Number(cleaned);
+    return Number.isFinite(number) ? number : 0;
+}
+
+function findFieldInLines(lines, patterns){
+    for(const line of lines){
+        const cleanLine = line.trim();
+        if(!cleanLine) continue;
+        for(const pattern of patterns){
+            const match = cleanLine.match(pattern);
+            if(match){
+                return parseCurrencyValue(match[1]);
+            }
+        }
+    }
+    return null;
+}
+
+function extractPaystubFieldsFromText(text){
+    const lines = text.split(/\n|\r/);
+
+    const gross = findFieldInLines(lines, [
+        /gross(?:\s+pay|\s+earnings)?[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /current\s+gross[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /regular\s+pay[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /earnings[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i
+    ]);
+
+    const net = findFieldInLines(lines, [
+        /net(?:\s+pay)?[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /take\s+home[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /net\s+earnings[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /amount\s+paid[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i
+    ]);
+
+    const tax = findFieldInLines(lines, [
+        /total\s+(?:tax(?:es)?|withholding|deductions?)[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /tax(?:es)?\s*&\s*deductions?[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /federal\s+tax(?:\s+withheld)?[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /withholding[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /deductions?[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i
+    ]);
+
+    const grossValue = gross !== null ? gross : 0;
+    const netValue = net !== null ? net : 0;
+    const taxValue = tax !== null ? tax : Math.max(0, grossValue - netValue);
+
+    return {
+        gross: grossValue,
+        net: netValue,
+        tax: taxValue,
+        rate: grossValue > 0 ? (taxValue / grossValue) * 100 : 0
+    };
+}
+
+async function readPdfText(file){
+    if(!window.pdfjsLib){
+        throw new Error("PDF parser is not loaded.");
+    }
+
+    const fileBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: fileBuffer }).promise;
+
+    let fullText = "";
+
+    for(let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++){
+        const page = await pdf.getPage(pageNumber);
+        const content = await page.getTextContent();
+        const pageText = content.items
+            .map(item => item.str)
+            .join(" ");
+        fullText += pageText + "\n";
+    }
+
+    return fullText;
+}
+
+function updateBiweeklyProjection(){
+    const validStubs = paystubs.filter(stub => Number(stub.gross) > 0);
+
+    if(validStubs.length === 0){
+        document.getElementById("biweeklyGross").textContent = "$0.00";
+        document.getElementById("biweeklyDeduction").textContent = "$0.00";
+        document.getElementById("biweeklyNet").textContent = "$0.00";
+        return;
+    }
+
+    const totalGross = validStubs.reduce((sum, stub) => sum + Number(stub.gross || 0), 0);
+    const totalTax = validStubs.reduce((sum, stub) => sum + Number(stub.tax || 0), 0);
+    const totalNet = validStubs.reduce((sum, stub) => sum + Number(stub.net || 0), 0);
+
+    const avgGross = totalGross / validStubs.length;
+    const avgTax = totalTax / validStubs.length;
+    const avgNet = totalNet / validStubs.length;
+
+    document.getElementById("biweeklyGross").textContent = formatCurrency(avgGross);
+    document.getElementById("biweeklyDeduction").textContent = formatCurrency(avgTax);
+    document.getElementById("biweeklyNet").textContent = formatCurrency(avgNet);
+}
+
+async function processPaystubPdfUpload(){
+    const file = document.getElementById("paystubPdfInput").files[0];
+    const statusEl = document.getElementById("pdfStatus");
+
+    if(!file){
+        statusEl.textContent = "Please choose a PDF first.";
+        return;
+    }
+
+    if(file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")){
+        statusEl.textContent = "Only PDF files are supported.";
+        return;
+    }
+
+    statusEl.textContent = "Reading PDF and extracting paystub values...";
+
+    try{
+        const text = await readPdfText(file);
+        const extracted = extractPaystubFieldsFromText(text);
+
+        if(!extracted.gross && !extracted.net){
+            throw new Error("Could not detect gross and net pay from the PDF. Try a standard paystub PDF.");
+        }
+
+        const normalizedStub = {
+            date: new Date().toLocaleDateString(),
+            gross: Number(extracted.gross || 0),
+            net: Number(extracted.net || 0),
+            tax: Number(extracted.tax || Math.max(0, extracted.gross - extracted.net)),
+            rate: Number(extracted.rate || 0),
+            source: "pdf",
+            fileName: file.name
+        };
+
+        paystubs.unshift(normalizedStub);
+        localStorage.setItem("paystubs", JSON.stringify(paystubs));
+
+        statusEl.textContent = `${file.name} analyzed: Gross ${formatCurrency(normalizedStub.gross)}, Net ${formatCurrency(normalizedStub.net)}, Deductions ${formatCurrency(normalizedStub.tax)}`;
+
+        updateTaxLearning();
+        document.getElementById("paystubPdfInput").value = "";
+
+    } catch (error) {
+        statusEl.textContent = error.message || "Unable to read this PDF. Please upload a clearer paystub PDF.";
+    }
+}
 
 // PAYROLL
 
@@ -646,7 +842,8 @@ function saveActualPaystub(){
         gross,
         net,
         tax,
-        rate
+        rate,
+        source: "manual"
 
     });
 
@@ -674,9 +871,9 @@ function updateTaxLearning(){
 
     paystubs.forEach(stub=>{
 
-        totalRate += stub.rate;
-        totalGross += stub.gross;
-        totalNet += stub.net;
+        totalRate += Number(stub.rate || ((stub.tax || 0) / (stub.gross || 1)) * 100);
+        totalGross += Number(stub.gross || 0);
+        totalNet += Number(stub.net || 0);
 
     });
 
@@ -708,7 +905,7 @@ function updateTaxLearning(){
     learnedRate.toFixed(2)+"%";
 
     renderPaystubHistory();
-
+    updateBiweeklyProjection();
     calculatePayroll();
 }
 
@@ -718,13 +915,18 @@ function renderPaystubHistory(){
 
     paystubs.forEach(stub=>{
 
+        const gross = Number(stub.gross || 0);
+        const net = Number(stub.net || 0);
+        const tax = Number(stub.tax || Math.max(0, gross - net));
+        const rate = Number(stub.rate || ((tax / (gross || 1)) * 100));
+
         paystubHistory.innerHTML += `
         <tr>
             <td>${stub.date}</td>
-            <td>$${stub.gross.toFixed(2)}</td>
-            <td>$${stub.net.toFixed(2)}</td>
-            <td>$${stub.tax.toFixed(2)}</td>
-            <td>${stub.rate.toFixed(2)}%</td>
+            <td>$${gross.toFixed(2)}</td>
+            <td>$${net.toFixed(2)}</td>
+            <td>$${tax.toFixed(2)}</td>
+            <td>${rate.toFixed(2)}%</td>
         </tr>
         `;
     });
@@ -748,6 +950,7 @@ calculatePayroll();
 renderHistory();
 updateTaxLearning();
 renderPaystubHistory();
+updateBiweeklyProjection();
 
 </script>
 
