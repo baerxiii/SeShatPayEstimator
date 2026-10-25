@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SeShat Compensation Suite V2</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23eab308'/%3E%3Ctext x='50%25' y='52%25' text-anchor='middle' dominant-baseline='middle' font-size='36' fill='%230b1120'%3E%24%3C/text%3E%3C/svg%3E">
 
 <style>
 
@@ -481,21 +482,27 @@ async function ensureSupabaseLoaded() {
 async function ensurePdfJsLoaded() {
     if (window.pdfjsLib) {
         if (window.pdfjsLib.GlobalWorkerSrc) {
-            window.pdfjsLib.GlobalWorkerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.305/pdf.worker.min.js';
+            window.pdfjsLib.GlobalWorkerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.305/build/pdf.worker.min.js';
         }
         return true;
     }
 
-    try {
-        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.305/pdf.min.js');
-    } catch (error) {
-        console.error('PDF JS failed to load:', error);
-        return false;
-    }
+    const candidates = [
+        'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.305/build/pdf.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.305/pdf.min.js',
+        'https://unpkg.com/pdfjs-dist@2.16.305/build/pdf.min.js'
+    ];
 
-    if (window.pdfjsLib) {
-        window.pdfjsLib.GlobalWorkerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.305/pdf.worker.min.js';
-        return true;
+    for (const candidate of candidates) {
+        try {
+            await loadScript(candidate);
+            if (window.pdfjsLib) {
+                window.pdfjsLib.GlobalWorkerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.305/build/pdf.worker.min.js';
+                return true;
+            }
+        } catch (error) {
+            console.warn('PDF CDN failed, trying next fallback:', candidate, error);
+        }
     }
 
     return false;
