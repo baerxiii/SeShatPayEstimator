@@ -285,15 +285,15 @@ th,td{
 
 <div class="card">
 
-    <h2 class="section-title">📄 Upload Paystub PDF</h2>
+    <h2 class="section-title">📄 Upload Paystub PDF or Image</h2>
 
-    <input id="paystubPdfInput" type="file" accept="application/pdf">
+    <input id="paystubPdfInput" type="file" accept="application/pdf,image/*">
 
     <button onclick="processPaystubPdfUpload()">
-        Analyze Paystub PDF
+        Analyze Paystub
     </button>
 
-    <div id="pdfStatus" class="pdf-status">No PDF analyzed yet.</div>
+    <div id="pdfStatus" class="pdf-status">No file analyzed yet.</div>
 
     <div class="grid" style="margin-top:20px;">
         <div>
@@ -307,6 +307,33 @@ th,td{
         <div>
             <div class="stat" id="biweeklyNet">$0.00</div>
             <div>Avg Net / 2 Weeks</div>
+        </div>
+    </div>
+
+</div>
+
+<br>
+
+<div class="card">
+
+    <h2 class="section-title">💸 2-Week Cheque Estimate</h2>
+
+    <div class="grid">
+        <div>
+            <div class="stat" id="chequeGross">$0.00</div>
+            <div>Gross per 2-week cheque</div>
+        </div>
+        <div>
+            <div class="stat" id="chequeDeduction">$0.00</div>
+            <div>Deduction per 2-week cheque</div>
+        </div>
+        <div>
+            <div class="stat" id="chequeNet">$0.00</div>
+            <div>Net pay per 2-week cheque</div>
+        </div>
+        <div>
+            <div class="stat" id="chequeRate">0.00%</div>
+            <div>Effective deduction rate</div>
         </div>
     </div>
 
@@ -398,9 +425,12 @@ th,td{
 </div>
     
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.305/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
 <script>
+
+pdfjsLib.GlobalWorkerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.305/pdf.worker.min.js';
 
 const SUPABASE_URL =
 'https://cujvvxyadxvlfvhgzlki.supabase.co';
@@ -528,54 +558,89 @@ function parseCurrencyValue(rawValue){
     return Number.isFinite(number) ? number : 0;
 }
 
-function findFieldInLines(lines, patterns){
-    for(const line of lines){
-        const cleanLine = line.trim();
-        if(!cleanLine) continue;
-        for(const pattern of patterns){
-            const match = cleanLine.match(pattern);
-            if(match){
-                return parseCurrencyValue(match[1]);
-            }
-        }
+function normalizeText(text){
+    return (text || "")
+        .replace(/\r/g, "\n")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function findBestMatch(line, patterns){
+    for(const pattern of patterns){
+        const match = line.match(pattern);
+        if(match) return parseCurrencyValue(match[1]);
     }
     return null;
 }
 
-function extractPaystubFieldsFromText(text){
-    const lines = text.split(/\n|\r/);
+function readLinesFromText(text){
+    return (text || "")
+        .replace(/\r/g, "\n")
+        .split(/\n+/)
+        .map(line => line.trim())
+        .filter(Boolean);
+}
 
-    const gross = findFieldInLines(lines, [
+function collectDeductionValues(lines){
+    const patterns = [
+        /(?:federal|fed|state|provincial|local|city)\s*(?:tax|taxes|withholding)[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /(?:social\s+security|ss|medicare|fica|ei|cpp|qpp)[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /(?:health|medical|vision|dental|insurance|benefit|benefits|401k|rrsp|retirement|pension)[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /(?:total\s+)?(?:tax|taxes|withholding|deductions?)[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /(?:pre[- ]tax|post[- ]tax)[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i
+    ];
+
+    const values = [];
+    for(const line of lines){
+        for(const pattern of patterns){
+            const match = line.match(pattern);
+            if(match){
+                values.push(parseCurrencyValue(match[1]));
+            }
+        }
+    }
+    return values;
+}
+
+function extractPaystubFieldsFromText(text){
+    const lines = readLinesFromText(text);
+    const joined = normalizeText(text);
+
+    const gross = findBestMatch(joined, [
         /gross(?:\s+pay|\s+earnings)?[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
         /current\s+gross[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
         /regular\s+pay[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /total\s+hours[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
         /earnings[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i
-    ]);
+    ]) ?? findBestMatch(joined, [/\$\s*([0-9][0-9,]*(?:\.\d{2})?)\s*(?:gross|earnings)/i]);
 
-    const net = findFieldInLines(lines, [
+    const net = findBestMatch(joined, [
         /net(?:\s+pay)?[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
         /take\s+home[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
         /net\s+earnings[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
-        /amount\s+paid[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i
+        /amount\s+paid[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /net\s+payable[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i
     ]);
 
-    const tax = findFieldInLines(lines, [
-        /total\s+(?:tax(?:es)?|withholding|deductions?)[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
-        /tax(?:es)?\s*&\s*deductions?[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
-        /federal\s+tax(?:\s+withheld)?[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
-        /withholding[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
-        /deductions?[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i
-    ]);
+    const deductionMatches = collectDeductionValues(lines);
+    const totalDeductions = deductionMatches.reduce((sum, val) => sum + val, 0);
+
+    let taxValue = 0;
+    if(deductionMatches.length > 0){
+        taxValue = totalDeductions;
+    } else if(gross !== null && net !== null){
+        taxValue = Math.max(0, gross - net);
+    }
 
     const grossValue = gross !== null ? gross : 0;
-    const netValue = net !== null ? net : 0;
-    const taxValue = tax !== null ? tax : Math.max(0, grossValue - netValue);
+    const netValue = net !== null ? net : Math.max(0, grossValue - taxValue);
+    const validTax = Math.max(0, taxValue || Math.max(0, grossValue - netValue));
 
     return {
         gross: grossValue,
         net: netValue,
-        tax: taxValue,
-        rate: grossValue > 0 ? (taxValue / grossValue) * 100 : 0
+        tax: validTax,
+        rate: grossValue > 0 ? (validTax / grossValue) * 100 : 0
     };
 }
 
@@ -601,6 +666,52 @@ async function readPdfText(file){
     return fullText;
 }
 
+async function ocrImageFile(file){
+    if(!window.Tesseract){
+        throw new Error("OCR library is not loaded.");
+    }
+
+    const imageUrl = URL.createObjectURL(file);
+    try {
+        const { data } = await Tesseract.recognize(imageUrl, 'eng', {
+            logger: m => {
+                if(m && m.status === 'recognizing text') {
+                    console.log(m.progress);
+                }
+            }
+        });
+        return data.text || "";
+    } finally {
+        URL.revokeObjectURL(imageUrl);
+    }
+}
+
+async function ocrScannedPdf(file){
+    if(!window.pdfjsLib || !window.Tesseract){
+        throw new Error("PDF or OCR libraries are not loaded.");
+    }
+
+    const fileBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: fileBuffer }).promise;
+    let allText = "";
+
+    for(let pageNumber = 1; pageNumber <= Math.min(pdf.numPages, 3); pageNumber++){
+        const page = await pdf.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        await page.render({ canvasContext: context, viewport }).promise;
+
+        const { data } = await Tesseract.recognize(canvas, 'eng');
+        allText += (data.text || "") + "\n";
+    }
+
+    return allText;
+}
+
 function updateBiweeklyProjection(){
     const validStubs = paystubs.filter(stub => Number(stub.gross) > 0);
 
@@ -608,6 +719,7 @@ function updateBiweeklyProjection(){
         document.getElementById("biweeklyGross").textContent = "$0.00";
         document.getElementById("biweeklyDeduction").textContent = "$0.00";
         document.getElementById("biweeklyNet").textContent = "$0.00";
+        updateChequeEstimate();
         return;
     }
 
@@ -622,6 +734,31 @@ function updateBiweeklyProjection(){
     document.getElementById("biweeklyGross").textContent = formatCurrency(avgGross);
     document.getElementById("biweeklyDeduction").textContent = formatCurrency(avgTax);
     document.getElementById("biweeklyNet").textContent = formatCurrency(avgNet);
+
+    document.getElementById("chequeGross").textContent = formatCurrency(avgGross);
+    document.getElementById("chequeDeduction").textContent = formatCurrency(avgTax);
+    document.getElementById("chequeNet").textContent = formatCurrency(avgNet);
+    document.getElementById("chequeRate").textContent = avgGross > 0 ? ((avgTax / avgGross) * 100).toFixed(2) + "%" : "0.00%";
+}
+
+function updateChequeEstimate(){
+    const validStubs = paystubs.filter(stub => Number(stub.gross) > 0);
+    if(validStubs.length === 0){
+        document.getElementById("chequeGross").textContent = "$0.00";
+        document.getElementById("chequeDeduction").textContent = "$0.00";
+        document.getElementById("chequeNet").textContent = "$0.00";
+        document.getElementById("chequeRate").textContent = "0.00%";
+        return;
+    }
+
+    const avgGross = validStubs.reduce((sum, stub) => sum + Number(stub.gross || 0), 0) / validStubs.length;
+    const avgTax = validStubs.reduce((sum, stub) => sum + Number(stub.tax || 0), 0) / validStubs.length;
+    const avgNet = validStubs.reduce((sum, stub) => sum + Number(stub.net || 0), 0) / validStubs.length;
+
+    document.getElementById("chequeGross").textContent = formatCurrency(avgGross);
+    document.getElementById("chequeDeduction").textContent = formatCurrency(avgTax);
+    document.getElementById("chequeNet").textContent = formatCurrency(avgNet);
+    document.getElementById("chequeRate").textContent = avgGross > 0 ? ((avgTax / avgGross) * 100).toFixed(2) + "%" : "0.00%";
 }
 
 async function processPaystubPdfUpload(){
@@ -629,23 +766,37 @@ async function processPaystubPdfUpload(){
     const statusEl = document.getElementById("pdfStatus");
 
     if(!file){
-        statusEl.textContent = "Please choose a PDF first.";
+        statusEl.textContent = "Please choose a PDF or image file first.";
         return;
     }
 
-    if(file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")){
-        statusEl.textContent = "Only PDF files are supported.";
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    const isImage = file.type.startsWith("image/");
+
+    if(!isPdf && !isImage){
+        statusEl.textContent = "Only PDF or image files are supported.";
         return;
     }
 
-    statusEl.textContent = "Reading PDF and extracting paystub values...";
+    statusEl.textContent = "Reading file and extracting values...";
 
     try{
-        const text = await readPdfText(file);
-        const extracted = extractPaystubFieldsFromText(text);
+        let extractedText = "";
 
-        if(!extracted.gross && !extracted.net){
-            throw new Error("Could not detect gross and net pay from the PDF. Try a standard paystub PDF.");
+        if(isImage){
+            extractedText = await ocrImageFile(file);
+        } else {
+            try {
+                extractedText = await readPdfText(file);
+            } catch (error) {
+                extractedText = await ocrScannedPdf(file);
+            }
+        }
+
+        const extracted = extractPaystubFieldsFromText(extractedText);
+
+        if(!extracted.gross && !extracted.net && !extracted.tax){
+            throw new Error("Could not detect paystub values. Try a clearer PDF or image.");
         }
 
         const normalizedStub = {
@@ -654,7 +805,7 @@ async function processPaystubPdfUpload(){
             net: Number(extracted.net || 0),
             tax: Number(extracted.tax || Math.max(0, extracted.gross - extracted.net)),
             rate: Number(extracted.rate || 0),
-            source: "pdf",
+            source: isImage ? "image" : "pdf",
             fileName: file.name
         };
 
@@ -667,7 +818,7 @@ async function processPaystubPdfUpload(){
         document.getElementById("paystubPdfInput").value = "";
 
     } catch (error) {
-        statusEl.textContent = error.message || "Unable to read this PDF. Please upload a clearer paystub PDF.";
+        statusEl.textContent = error.message || "Unable to read this file. Please upload a clearer paystub.";
     }
 }
 
@@ -868,12 +1019,19 @@ function updateTaxLearning(){
     let totalRate=0;
     let totalGross=0;
     let totalNet=0;
+    let totalTax=0;
 
     paystubs.forEach(stub=>{
 
-        totalRate += Number(stub.rate || ((stub.tax || 0) / (stub.gross || 1)) * 100);
-        totalGross += Number(stub.gross || 0);
-        totalNet += Number(stub.net || 0);
+        const gross = Number(stub.gross || 0);
+        const net = Number(stub.net || 0);
+        const tax = Number(stub.tax || Math.max(0, gross - net));
+        const rate = Number(stub.rate || ((tax / (gross || 1)) * 100));
+
+        totalRate += rate;
+        totalGross += gross;
+        totalNet += net;
+        totalTax += tax;
 
     });
 
@@ -907,6 +1065,11 @@ function updateTaxLearning(){
     renderPaystubHistory();
     updateBiweeklyProjection();
     calculatePayroll();
+
+    document.getElementById("chequeGross").textContent = formatCurrency(totalGross / paystubs.length);
+    document.getElementById("chequeDeduction").textContent = formatCurrency(totalTax / paystubs.length);
+    document.getElementById("chequeNet").textContent = formatCurrency(totalNet / paystubs.length);
+    document.getElementById("chequeRate").textContent = learnedRate.toFixed(2) + "%";
 }
 
 function renderPaystubHistory(){
