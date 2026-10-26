@@ -694,7 +694,7 @@ function extractPaystubFieldsFromText(text){
         /gross(?:\s+pay|\s+earnings)?[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
         /current\s+gross[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
         /regular\s+pay[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
-        /total\s+hours[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
+        /total\s+earnings[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i,
         /earnings[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i
     ]) ?? findBestMatch(joined, [/\$\s*([0-9][0-9,]*(?:\.\d{2})?)\s*(?:gross|earnings)/i]);
 
@@ -1064,7 +1064,7 @@ function updateTaxLearning(){
 function renderPaystubHistory(){
     paystubHistory.innerHTML = '';
 
-    paystubs.forEach(stub => {
+    paystubs.forEach((stub, index) => {
         const gross = Number(stub.gross || 0);
         const net = Number(stub.net || 0);
         const tax = Number(stub.tax || Math.max(0, gross - net));
@@ -1077,9 +1077,19 @@ function renderPaystubHistory(){
             <td>$${net.toFixed(2)}</td>
             <td>$${tax.toFixed(2)}</td>
             <td>${rate.toFixed(2)}%</td>
+            <td>
+                <button class="small-btn" onclick="deletePaystub(${index})">X</button>
+            </td>
         </tr>
         `;
     });
+}
+
+function deletePaystub(index){
+    if(!confirm('Delete this paystub record?')) return;
+    paystubs.splice(index, 1);
+    localStorage.setItem('paystubs', JSON.stringify(paystubs));
+    updateTaxLearning();
 }
 
 document.querySelectorAll('input').forEach(input => {
