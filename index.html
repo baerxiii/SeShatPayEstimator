@@ -481,23 +481,20 @@ async function ensureSupabaseLoaded() {
 
 async function ensurePdfJsLoaded() {
     if (window.pdfjsLib) {
-        if (window.pdfjsLib.GlobalWorkerSrc) {
-            window.pdfjsLib.GlobalWorkerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.305/build/pdf.worker.min.js';
-        }
         return true;
     }
 
+    const version = '3.11.174';
     const candidates = [
-        'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.305/build/pdf.min.js',
-        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.305/pdf.min.js',
-        'https://unpkg.com/pdfjs-dist@2.16.305/build/pdf.min.js'
+        `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.min.js`,
+        `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/build/pdf.min.js`
     ];
 
     for (const candidate of candidates) {
         try {
             await loadScript(candidate);
             if (window.pdfjsLib) {
-                window.pdfjsLib.GlobalWorkerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.305/build/pdf.worker.min.js';
+                window.pdfjsLib.GlobalWorkerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.js`;
                 return true;
             }
         } catch (error) {
@@ -567,6 +564,7 @@ async function signIn(){
     document.getElementById('loginPanel').style.display = 'none';
     document.getElementById('app').style.display = 'block';
 
+    await loadUserData();
     alert('Successfully signed in.');
 }
 
@@ -588,6 +586,12 @@ async function signOut(){
 
     document.getElementById('app').style.display = 'none';
     document.getElementById('loginPanel').style.display = 'block';
+    
+    payHistory = [];
+    paystubs = [];
+    renderHistory();
+    renderPaystubHistory();
+    updateTaxLearning();
 
     alert('Signed out.');
 }
@@ -609,9 +613,41 @@ async function checkSession(){
     if(session){
         loginPanel.style.display = 'none';
         app.style.display = 'block';
+        await loadUserData();
     } else {
         loginPanel.style.display = 'block';
         app.style.display = 'none';
+    }
+}
+
+async function loadUserData(){
+    if(!supabaseClient) return;
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if(!user) return;
+
+    // Load Pay History
+    const { data: history, error: historyErr } = await supabaseClient
+        .from('pay_history')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+    if(!historyErr && history) {
+        payHistory = history;
+        renderHistory();
+    }
+
+    // Load Paystubs
+    const { data: stubs, error: stubsErr } = await supabaseClient
+        .from('paystubs')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+    if(!stubsErr && stubs) {
+        paystubs = stubs;
+        renderPaystubHistory();
+        updateTaxLearning();
     }
 }
 
@@ -895,8 +931,18 @@ async function processPaystubPdfUpload(){
             tax: Number(extracted.tax || Math.max(0, extracted.gross - extracted.net)),
             rate: Number(extracted.rate || 0),
             source: isImage ? 'image' : 'pdf',
-            fileName: file.name
+            file_name: file.name
         };
+
+        if(supabaseClient) {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if(user) {
+                const { error } = await supabaseClient
+                    .from('paystubs')
+                    .insert([{ ...normalizedStub, user_id: user.id }]);
+                if(error) console.error('Supabase error:', error);
+            }
+        }
 
         paystubs.unshift(normalizedStub);
         localStorage.setItem('paystubs', JSON.stringify(paystubs));
@@ -939,16 +985,26 @@ function calculatePayroll(){
     return { gross, net, mileage };
 }
 
-function savePayPeriod(){
+async function savePayPeriod(){
     let pay = calculatePayroll();
+    const newRecord = {
+        date: new Date().toLocaleDateString(),
+        gross: pay.gross,
+        net: pay.net,
+        mileage: pay.mileage
+    };
 
-    payHistory.unshift({
-        date:new Date().toLocaleDateString(),
-        gross:pay.gross,
-        net:pay.net,
-        mileage:pay.mileage
-    });
+    if(supabaseClient) {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if(user) {
+            const { error } = await supabaseClient
+                .from('pay_history')
+                .insert([{ ...newRecord, user_id: user.id }]);
+            if(error) console.error('Supabase error:', error);
+        }
+    }
 
+    payHistory.unshift(newRecord);
     localStorage.setItem('payHistory', JSON.stringify(payHistory));
     renderHistory();
 }
@@ -971,7 +1027,18 @@ function renderHistory(){
     });
 }
 
-function deleteRecord(index){
+async function deleteRecord(index){
+    if(!confirm('Delete this record?')) return;
+    const record = payHistory[index];
+
+    if(supabaseClient && record.id) {
+        const { error } = await supabaseClient
+            .from('pay_history')
+            .delete()
+            .eq('id', record.id);
+        if(error) console.error('Supabase error:', error);
+    }
+
     payHistory.splice(index, 1);
     localStorage.setItem('payHistory', JSON.stringify(payHistory));
     renderHistory();
@@ -991,7 +1058,7 @@ function exportHistory(){
     a.click();
 }
 
-function saveActualPaystub(){
+async function saveActualPaystub(){
     let gross = Number(actualGross.value);
     let net = Number(actualNet.value);
     let tax = Number(actualTax.value);
@@ -1002,16 +1069,26 @@ function saveActualPaystub(){
     }
 
     let rate = (tax / gross) * 100;
-
-    paystubs.unshift({
-        date:new Date().toLocaleDateString(),
+    const newStub = {
+        date: new Date().toLocaleDateString(),
         gross,
         net,
         tax,
         rate,
-        source:'manual'
-    });
+        source: 'manual'
+    };
 
+    if(supabaseClient) {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if(user) {
+            const { error } = await supabaseClient
+                .from('paystubs')
+                .insert([{ ...newStub, user_id: user.id }]);
+            if(error) console.error('Supabase error:', error);
+        }
+    }
+
+    paystubs.unshift(newStub);
     localStorage.setItem('paystubs', JSON.stringify(paystubs));
     actualGross.value='';
     actualNet.value='';
@@ -1085,8 +1162,18 @@ function renderPaystubHistory(){
     });
 }
 
-function deletePaystub(index){
+async function deletePaystub(index){
     if(!confirm('Delete this paystub record?')) return;
+    const stub = paystubs[index];
+
+    if(supabaseClient && stub.id) {
+        const { error } = await supabaseClient
+            .from('paystubs')
+            .delete()
+            .eq('id', stub.id);
+        if(error) console.error('Supabase error:', error);
+    }
+
     paystubs.splice(index, 1);
     localStorage.setItem('paystubs', JSON.stringify(paystubs));
     updateTaxLearning();
