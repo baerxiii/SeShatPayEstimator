@@ -190,6 +190,76 @@
             </div>
         </div>
 
+        <div class="card">
+
+    <h2>⚙ Compensation Settings</h2>
+
+    <div class="grid">
+
+        <div>
+            <label>Hourly Rate</label>
+            <input
+                id="hourlyRate"
+                type="number"
+                step="0.01"
+                value="27.81">
+        </div>
+
+        <div>
+            <label>OT Multiplier</label>
+            <input
+                id="otMultiplier"
+                type="number"
+                step="0.01"
+                value="1.5">
+        </div>
+
+        <div>
+            <label>Double Time Multiplier</label>
+            <input
+                id="dtMultiplier"
+                type="number"
+                step="0.01"
+                value="2">
+        </div>
+
+        <div>
+            <label>Mileage Rate</label>
+            <input
+                id="mileageRate"
+                type="number"
+                step="0.01"
+                value="0.40">
+        </div>
+
+        <div>
+            <label>Availability Rate</label>
+            <input
+                id="availabilityRate"
+                type="number"
+                step="0.01"
+                value="25">
+        </div>
+
+        <div>
+            <label>Tax Rate (%)</label>
+            <input
+                id="taxRate"
+                type="number"
+                step="0.01"
+                value="24">
+        </div>
+
+    </div>
+
+    <br>
+
+    <button onclick="saveCompensationSettings()">
+        Save Compensation Settings
+    </button>
+
+</div>
+
         <div class="content">
             <div class="card">
                 <h2 class="section-title">Payroll Calculator</h2>
@@ -367,6 +437,20 @@
             availabilityRate: 25,
             taxRate: 24
         };
+
+const storedSettings =
+    localStorage.getItem(
+        "compensationSettings"
+    );
+
+if(storedSettings){
+
+    settings =
+        JSON.parse(
+            storedSettings
+        );
+}
+        
         let payHistory = JSON.parse(localStorage.getItem(STORAGE_KEYS.payHistory)) || [];
         let paystubs = JSON.parse(localStorage.getItem(STORAGE_KEYS.paystubs)) || [];
 
@@ -675,6 +759,114 @@
 
             return allText;
         }
+
+        function saveCompensationSettings(){
+
+    settings.regularRate =
+        Number(
+            document.getElementById(
+                "hourlyRate"
+            ).value
+        );
+
+    settings.otMultiplier =
+        Number(
+            document.getElementById(
+                "otMultiplier"
+            ).value
+        );
+
+    settings.dtMultiplier =
+        Number(
+            document.getElementById(
+                "dtMultiplier"
+            ).value
+        );
+
+    settings.mileageRate =
+        Number(
+            document.getElementById(
+                "mileageRate"
+            ).value
+        );
+
+    settings.availabilityRate =
+        Number(
+            document.getElementById(
+                "availabilityRate"
+            ).value
+        );
+
+    settings.taxRate =
+        Number(
+            document.getElementById(
+                "taxRate"
+            ).value
+        );
+
+    localStorage.setItem(
+        "compensationSettings",
+        JSON.stringify(settings)
+    );
+
+    calculatePayroll();
+}
+
+        function saveCompensationSettings(){
+
+    settings.regularRate =
+        Number(
+            document.getElementById(
+                "hourlyRate"
+            ).value
+        );
+
+    settings.otMultiplier =
+        Number(
+            document.getElementById(
+                "otMultiplier"
+            ).value
+        );
+
+    settings.dtMultiplier =
+        Number(
+            document.getElementById(
+                "dtMultiplier"
+            ).value
+        );
+
+    settings.mileageRate =
+        Number(
+            document.getElementById(
+                "mileageRate"
+            ).value
+        );
+
+    settings.availabilityRate =
+        Number(
+            document.getElementById(
+                "availabilityRate"
+            ).value
+        );
+
+    settings.taxRate =
+        Number(
+            document.getElementById(
+                "taxRate"
+            ).value
+        );
+
+    localStorage.setItem(
+        "compensationSettings",
+        JSON.stringify(settings)
+    );
+
+    calculatePayroll();
+
+    alert(
+        "Compensation settings saved."
+    );
+}
 
         function calculatePayroll() {
             const regularHours = Number(document.getElementById('regularHours').value) || 0;
@@ -1133,6 +1325,36 @@
         });
 
         loadConfigFromStorage();
+        document.getElementById(
+    "hourlyRate"
+).value =
+    settings.regularRate;
+
+document.getElementById(
+    "otMultiplier"
+).value =
+    settings.otMultiplier;
+
+document.getElementById(
+    "dtMultiplier"
+).value =
+    settings.dtMultiplier;
+
+document.getElementById(
+    "mileageRate"
+).value =
+    settings.mileageRate;
+
+document.getElementById(
+    "availabilityRate"
+).value =
+    settings.availabilityRate;
+
+document.getElementById(
+    "taxRate"
+).value =
+    settings.taxRate;
+
         checkSession();
         calculatePayroll();
         renderHistory();
