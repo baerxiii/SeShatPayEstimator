@@ -1058,7 +1058,29 @@ if(rate > 50){
             if (supabaseClient) {
                 const { data: { user } } = await supabaseClient.auth.getUser();
                 if (user) {
-                    const { error } = await supabaseClient.from('paystubs').insert([{ ...newStub, user_id: user.id }]);
+                    const { error } =
+await supabaseClient
+.from('paystubs')
+.insert([{
+
+    pay_date:
+        new Date()
+        .toISOString()
+        .split('T')[0],
+
+    gross_pay:
+        newStub.gross,
+
+    net_pay:
+        newStub.net,
+
+    tax_paid:
+        newStub.tax,
+
+    effective_tax_rate:
+        newStub.rate
+
+}]);
                     if (error) console.error('Supabase error:', error);
                 }
             }
