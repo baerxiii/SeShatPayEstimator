@@ -1022,7 +1022,6 @@ if(gross !== null && net !== null){
                 }
 
                 paystubs.unshift(normalizedStub);
-                localStorage.setItem(STORAGE_KEYS.paystubs, JSON.stringify(paystubs));
                 statusEl.textContent = `${file.name} analyzed: Gross ${formatCurrency(normalizedStub.gross)}, Net ${formatCurrency(normalizedStub.net)}, Deductions ${formatCurrency(normalizedStub.tax)}`;
 
                 document.getElementById('paystubPdfInput').value = '';
@@ -1086,8 +1085,7 @@ await supabaseClient
             }
 
             paystubs.unshift(newStub);
-            localStorage.setItem(STORAGE_KEYS.paystubs, JSON.stringify(paystubs));
-
+           
             document.getElementById('actualGross').value = '';
             document.getElementById('actualNet').value = '';
             document.getElementById('actualTax').value = '';
@@ -1177,8 +1175,7 @@ await supabaseClient
             }
 
             paystubs.splice(index, 1);
-            localStorage.setItem(STORAGE_KEYS.paystubs, JSON.stringify(paystubs));
-            updateTaxLearning();
+                        updateTaxLearning();
         }
 
         function updateBiweeklyProjection() {
@@ -1344,8 +1341,7 @@ await supabaseClient
 
                 if (!stubsErr && stubs) {
                     paystubs = stubs;
-                    localStorage.setItem(STORAGE_KEYS.paystubs, JSON.stringify(paystubs));
-                    renderPaystubHistory();
+                                        renderPaystubHistory();
                     updateTaxLearning();
                 }
                 return;
