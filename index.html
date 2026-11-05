@@ -1016,7 +1016,29 @@ if(gross !== null && net !== null){
                 if (supabaseClient) {
                     const { data: { user } } = await supabaseClient.auth.getUser();
                     if (user) {
-                        const { error } = await supabaseClient.from('paystubs').insert([{ ...normalizedStub, user_id: user.id }]);
+                        const { error } =
+await supabaseClient
+.from('paystubs')
+.insert([{
+
+    pay_date:
+        new Date()
+        .toISOString()
+        .split('T')[0],
+
+    gross_pay:
+        normalizedStub.gross,
+
+    net_pay:
+        normalizedStub.net,
+
+    tax_paid:
+        normalizedStub.tax,
+
+    effective_tax_rate:
+        normalizedStub.rate
+
+}]);
                         if (error) console.error('Supabase error:', error);
                     }
                 }
