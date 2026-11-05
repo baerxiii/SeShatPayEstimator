@@ -1038,7 +1038,17 @@ if(storedSettings){
                 return;
             }
 
-            const rate = (tax / gross) * 100;
+            const rate =
+(tax / gross) * 100;
+
+if(rate > 50){
+
+    alert(
+        "Tax rate appears incorrect. Check values entered."
+    );
+
+    return;
+}
             const newStub = { date: new Date().toLocaleDateString(), gross, net, tax, rate, source: 'manual' };
 
             if (supabaseClient) {
