@@ -453,6 +453,8 @@ if(storedSettings){
         
         let payHistory = JSON.parse(localStorage.getItem(STORAGE_KEYS.payHistory)) || [];
         let paystubs = JSON.parse(localStorage.getItem(STORAGE_KEYS.paystubs)) || [];
+        paystubs = [];
+localStorage.removeItem("paystubs");
 
         function loadScript(src) {
             return new Promise((resolve, reject) => {
@@ -645,15 +647,17 @@ if(storedSettings){
                 /net\s+payable[^\d$-]*\$?\s*([0-9][0-9,]*(?:\.\d{2})?)/i
             ]);
 
-            const deductionMatches = collectDeductionValues(lines);
-            const totalDeductions = deductionMatches.reduce((sum, val) => sum + val, 0);
-
             let taxValue = 0;
-            if (deductionMatches.length > 0) {
-                taxValue = totalDeductions;
-            } else if (gross !== null && net !== null) {
-                taxValue = Math.max(0, gross - net);
-            }
+
+if(gross !== null && net !== null){
+
+    taxValue =
+        Math.max(
+            0,
+            gross - net
+        );
+
+}
 
             const grossValue = gross !== null ? gross : 0;
             const netValue = net !== null ? net : Math.max(0, grossValue - taxValue);
@@ -1098,8 +1102,10 @@ if(rate > 50){
                 totalTax += tax;
             });
 
-            let learnedRate = totalRate / paystubs.length;
-            settings.taxRate = learnedRate;
+            let learnedRate =
+    totalRate / paystubs.length;
+
+// settings.taxRate = learnedRate;
 
             document.getElementById('stubCount').textContent = paystubs.length;
             document.getElementById('learnedRate').textContent = learnedRate.toFixed(2) + '%';
