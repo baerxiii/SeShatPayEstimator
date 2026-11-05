@@ -999,6 +999,11 @@ if(gross !== null && net !== null){
                 }
 
                 const extracted = extractPaystubFieldsFromText(extractedText);
+                console.log("PDF TEXT");
+console.log(extractedText);
+
+console.log("EXTRACTED");
+console.log(extracted);
                 if (!extracted.gross && !extracted.net && !extracted.tax) {
                     throw new Error('Could not detect paystub values. Try a clearer PDF or image.');
                 }
