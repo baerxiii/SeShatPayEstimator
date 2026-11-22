@@ -326,8 +326,9 @@
                         <tr>
                             <th>Date</th>
                             <th>Gross</th>
-                            <th>Net</th>
+                            <th>Net (Hours)</th>
                             <th>Mileage</th>
+                            <th>Net Total</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -1113,16 +1114,17 @@
             const mileage = kilometers * settings.mileageRate;
             const effectiveRate = Number(activeEffectiveTaxRate || settings.taxRate || 24);
             const tax = gross * (effectiveRate / 100);
-            const net = gross - tax + mileage;
+            const netFromHours = gross - tax;
+            const netTotal = netFromHours + mileage;
 
             document.getElementById('grossPay').textContent = formatCurrency(gross);
-            document.getElementById('netPay').textContent = formatCurrency(net);
+            document.getElementById('netPay').textContent = formatCurrency(netFromHours);
             document.getElementById('mileagePay').textContent = formatCurrency(mileage);
-            document.getElementById('estimatedDeposit').textContent = formatCurrency(net);
+            document.getElementById('estimatedDeposit').textContent = formatCurrency(netTotal);
             document.getElementById('taxRateDisplay').textContent = effectiveRate.toFixed(2) + '%';
             document.getElementById('activeTaxLabel').textContent = effectiveRate.toFixed(2) + '%';
 
-            return { gross, net, mileage };
+            return { gross, netFromHours, mileage, netTotal };
         }
 
         function renderHistory() {
@@ -1130,12 +1132,25 @@
             historyBody.innerHTML = '';
 
             payHistory.forEach((row, index) => {
+                const gross = Number(row.gross || 0);
+                const mileage = Number(row.mileage || 0);
+                const hasExplicitNetHours = row.netFromHours !== undefined && row.netFromHours !== null;
+                const netFromHours = hasExplicitNetHours
+                    ? Number(row.netFromHours)
+                    : (row.netTotal !== undefined && row.netTotal !== null
+                        ? Number(row.netTotal) - mileage
+                        : Number(row.net || 0) - mileage);
+                const netTotal = row.netTotal !== undefined && row.netTotal !== null
+                    ? Number(row.netTotal)
+                    : netFromHours + mileage;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${row.date}</td>
-                    <td>${formatCurrency(row.gross)}</td>
-                    <td>${formatCurrency(row.net)}</td>
-                    <td>${formatCurrency(row.mileage)}</td>
+                    <td>${formatCurrency(gross)}</td>
+                    <td>${formatCurrency(netFromHours)}</td>
+                    <td>${formatCurrency(mileage)}</td>
+                    <td>${formatCurrency(netTotal)}</td>
                     <td></td>
                 `;
                 const delBtn = document.createElement('button');
@@ -1153,8 +1168,10 @@
             const newRecord = {
                 date: new Date().toISOString().split('T')[0],
                 gross: pay.gross,
-                net: pay.net,
-                mileage: pay.mileage
+                netFromHours: pay.netFromHours,
+                net: pay.netFromHours,
+                mileage: pay.mileage,
+                netTotal: pay.netTotal
             };
 
             if (supabaseClient && !isLocalOnlyRequested()) {
@@ -1193,9 +1210,17 @@
         }
 
         function exportHistory() {
-            let csv = 'Date,Gross,Net,Mileage\n';
+            let csv = 'Date,Gross,Net (Hours),Mileage,Net Total\n';
             payHistory.forEach(r => {
-                csv += `${r.date},${r.gross},${r.net},${r.mileage}\n`;
+                const gross = Number(r.gross || 0);
+                const mileage = Number(r.mileage || 0);
+                const netFromHours = (r.netFromHours !== undefined && r.netFromHours !== null)
+                    ? Number(r.netFromHours)
+                    : Number(r.net || 0) - mileage;
+                const netTotal = (r.netTotal !== undefined && r.netTotal !== null)
+                    ? Number(r.netTotal)
+                    : netFromHours + mileage;
+                csv += `${r.date},${gross.toFixed(2)},${netFromHours.toFixed(2)},${mileage.toFixed(2)},${netTotal.toFixed(2)}\n`;
             });
 
             const blob = new Blob([csv], { type: 'text/csv' });
