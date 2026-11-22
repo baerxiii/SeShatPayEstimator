@@ -241,22 +241,19 @@
         <div class="card">
             <h2>🔐 Login (Syncs Across Devices)</h2>
 
-            <input id="email" type="email" placeholder="Email Address">
-            <input id="password" type="password" placeholder="Password">
-
-            <input id="supabaseUrl" type="text" placeholder="https://cujvvxyadxvlfvhgzlki.supabase.co">
-            <input id="supabaseKey" type="password" placeholder="Supabase publishable/anon key">
+            <input id="email" type="email" placeholder="Email Address" autocomplete="email">
+            <input id="password" type="password" placeholder="Password" autocomplete="current-password">
 
             <div class="inline-row">
                 <input id="localModeToggle" type="checkbox">
                 <label for="localModeToggle">Run in local-only mode</label>
             </div>
 
-            <button type="button" onclick="signUp()">Create Account</button>
+            <button type="button" id="signUpBtn">Create Account</button>
             <br><br>
-            <button type="button" onclick="signIn()">Sign In</button>
+            <button type="button" id="signInBtn">Sign In</button>
             <br><br>
-            <button type="button" class="secondary" onclick="useLocalMode(true)">Continue Without Supabase</button>
+            <button type="button" id="localModeBtn" class="secondary">Continue Offline (Local Only)</button>
         </div>
     </div>
 
@@ -267,20 +264,16 @@
                 <div class="topbar-status" id="accountStatus">Checking session...</div>
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                <button type="button" id="syncNowBtn" class="small-btn secondary" onclick="syncNowHandler()">Sync Now</button>
-                <button type="button" class="small-btn secondary" onclick="signOut()">Sign Out</button>
+                <button type="button" id="syncNowBtn" class="small-btn secondary">Sync Now</button>
+                <button type="button" id="signOutBtn" class="small-btn secondary">Sign Out</button>
             </div>
         </div>
 
-        <!-- TAB NAVIGATION -->
         <div class="tab-bar" role="tablist">
-            <button type="button" class="tab-btn active" data-tab="estimatorTab" onclick="switchTab('estimatorTab')">🧮 Pay Estimator</button>
-            <button type="button" class="tab-btn" data-tab="stubsTab" onclick="switchTab('stubsTab')">📑 Uploaded Paystubs (<span id="tabStubBadge">0</span>)</button>
+            <button type="button" class="tab-btn active" data-tab="estimatorTab">🧮 Pay Estimator</button>
+            <button type="button" class="tab-btn" data-tab="stubsTab">📑 Uploaded Paystubs (<span id="tabStubBadge">0</span>)</button>
         </div>
 
-        <!-- =============================================================== -->
-        <!-- TAB 1: PAY ESTIMATOR & DAILY HOURS TRACKER                      -->
-        <!-- =============================================================== -->
         <div id="estimatorTab" class="tab-panel active">
             <div class="grid">
                 <div class="card">
@@ -318,11 +311,11 @@
                     <p>Expected Deposit (using <span id="activeTaxLabel">24.00%</span> effective deduction rate)</p>
                     <div class="kpi success" id="estimatedDeposit">$0.00</div>
                     <br>
-                    <button type="button" onclick="savePayPeriod()">Save Pay Period</button>
+                    <button type="button" id="savePayPeriodBtn">Save Pay Period</button>
                     <br><br>
-                    <button type="button" class="secondary" onclick="clearHoursInputs()">Clear Hours to 0</button>
+                    <button type="button" id="clearHoursBtn" class="secondary">Clear Hours to 0</button>
                     <br><br>
-                    <button type="button" onclick="exportHistory()">Export CSV</button>
+                    <button type="button" id="exportHistoryBtn">Export CSV</button>
                 </div>
             </div>
 
@@ -367,13 +360,10 @@
             </div>
         </div>
 
-        <!-- =============================================================== -->
-        <!-- TAB 2: UPLOADED PAYSTUBS & TAX LEARNING ENGINE                  -->
-        <!-- =============================================================== -->
         <div id="stubsTab" class="tab-panel">
             <div class="toolbar">
-                <button type="button" onclick="document.getElementById('uploadDialog').showModal()">📄 Upload Paystub PDF / Image</button>
-                <button type="button" class="secondary" onclick="document.getElementById('actualDialog').showModal()">📋 Enter Actual Paystub</button>
+                <button type="button" id="openUploadFromTab">📄 Upload Paystub PDF / Image</button>
+                <button type="button" id="openActualFromTab" class="secondary">📋 Enter Actual Paystub</button>
             </div>
 
             <div class="card">
@@ -441,9 +431,6 @@
             </div>
         </div>
 
-        <!-- =============================================================== -->
-        <!-- DIALOGS                                                         -->
-        <!-- =============================================================== -->
         <dialog id="settingsDialog" aria-labelledby="settingsHeading">
             <div>
                 <h2 id="settingsHeading">⚙ Compensation Settings</h2>
@@ -489,7 +476,7 @@
 
                 <div class="dialog-actions">
                     <button type="button" class="secondary" data-close-dialog>Close</button>
-                    <button type="button" onclick="saveCompensationSettings()">Save Compensation Settings</button>
+                    <button type="button" id="saveSettingsBtn">Save Compensation Settings</button>
                 </div>
             </div>
         </dialog>
@@ -520,7 +507,7 @@
                 <input id="kilometers" type="number" step="1" value="0">
 
                 <div class="dialog-actions">
-                    <button type="button" class="secondary" onclick="clearHoursInputs()">Reset to 0</button>
+                    <button type="button" id="resetHoursDialogBtn" class="secondary">Reset to 0</button>
                     <button type="button" data-close-dialog>Done</button>
                 </div>
             </div>
@@ -532,7 +519,7 @@
                 Supports single paystubs or multi-page CompuCom Canada Co. cumulative PDF exports.
             </p>
             <input id="paystubPdfInput" type="file" accept="application/pdf,image/*">
-            <button type="button" onclick="processPaystubPdfUpload()">Analyze & Sync Paystub(s)</button>
+            <button type="button" id="processUploadBtn">Analyze & Sync Paystub(s)</button>
             <div id="pdfStatus" class="pdf-status">No file analyzed yet.</div>
             <div class="dialog-actions">
                 <button type="button" class="secondary" data-close-dialog>Close</button>
@@ -555,18 +542,17 @@
 
             <div class="dialog-actions">
                 <button type="button" class="secondary" data-close-dialog>Cancel</button>
-                <button type="button" onclick="saveActualPaystub()">Save Actual Paystub</button>
+                <button type="button" id="saveActualStubBtn">Save Actual Paystub</button>
             </div>
         </dialog>
     </div>
 
     <script>
+    (function () {
         const DEFAULT_SUPABASE_URL = 'https://cujvvxyadxvlfvhgzlki.supabase.co';
         const DEFAULT_SUPABASE_KEY = 'sb_publishable_wogqNQurYqmvOx9FvoFxMQ_XyRMTxZ_';
 
         const STORAGE_KEYS = {
-            url: 'se_shat_supabase_url',
-            key: 'se_shat_supabase_key',
             localOnly: 'se_shat_local_only',
             payHistory: 'payHistory',
             paystubs: 'paystubs',
@@ -606,9 +592,6 @@
         let payHistory = JSON.parse(localStorage.getItem(STORAGE_KEYS.payHistory)) || [];
         let paystubs = JSON.parse(localStorage.getItem(STORAGE_KEYS.paystubs)) || [];
 
-        // =========================================================================
-        // TAB SWITCHING
-        // =========================================================================
         function switchTab(tabId) {
             document.querySelectorAll('.tab-panel').forEach(panel => {
                 panel.classList.toggle('active', panel.id === tabId);
@@ -618,9 +601,6 @@
             });
         }
 
-        // =========================================================================
-        // PERSIST LAST ENTERED HOURS (Defaults to 0 on first visit, remembers edits)
-        // =========================================================================
         function loadSavedHours() {
             const raw = localStorage.getItem(STORAGE_KEYS.lastHours);
             const saved = raw ? JSON.parse(raw) : {};
@@ -675,44 +655,6 @@
             });
         }
 
-        function loadConfigFromStorage() {
-            const savedUrl = localStorage.getItem(STORAGE_KEYS.url) || DEFAULT_SUPABASE_URL;
-            const savedKey = localStorage.getItem(STORAGE_KEYS.key) || DEFAULT_SUPABASE_KEY;
-            const localOnly = localStorage.getItem(STORAGE_KEYS.localOnly) === 'true';
-
-            if (document.getElementById('supabaseUrl')) {
-                document.getElementById('supabaseUrl').value = savedUrl;
-            }
-            if (document.getElementById('supabaseKey')) {
-                document.getElementById('supabaseKey').value = savedKey;
-            }
-            if (document.getElementById('localModeToggle')) {
-                document.getElementById('localModeToggle').checked = localOnly;
-            }
-
-            return { savedUrl, savedKey, localOnly };
-        }
-
-        function saveSupabaseConfig() {
-            const url = (document.getElementById('supabaseUrl')?.value || DEFAULT_SUPABASE_URL).trim();
-            const key = (document.getElementById('supabaseKey')?.value || DEFAULT_SUPABASE_KEY).trim();
-            const localOnly = !!document.getElementById('localModeToggle')?.checked;
-
-            localStorage.setItem(STORAGE_KEYS.url, url);
-            localStorage.setItem(STORAGE_KEYS.key, key);
-            localStorage.setItem(STORAGE_KEYS.localOnly, String(localOnly));
-
-            return { url, key, localOnly };
-        }
-
-        function selectedSupabaseUrl() {
-            return (document.getElementById('supabaseUrl')?.value || localStorage.getItem(STORAGE_KEYS.url) || DEFAULT_SUPABASE_URL).trim();
-        }
-
-        function selectedSupabaseKey() {
-            return (document.getElementById('supabaseKey')?.value || localStorage.getItem(STORAGE_KEYS.key) || DEFAULT_SUPABASE_KEY).trim();
-        }
-
         function isLocalOnlyRequested() {
             const checkbox = document.getElementById('localModeToggle');
             if (checkbox) {
@@ -722,10 +664,7 @@
         }
 
         async function ensureSupabaseLoaded() {
-            const url = selectedSupabaseUrl();
-            const key = selectedSupabaseKey() || DEFAULT_SUPABASE_KEY;
-
-            if (!url || !key) return false;
+            if (!DEFAULT_SUPABASE_URL || !DEFAULT_SUPABASE_KEY) return false;
 
             if (!window.supabase || !window.supabase.createClient) {
                 try {
@@ -740,7 +679,7 @@
 
             try {
                 if (!supabaseClient) {
-                    supabaseClient = window.supabase.createClient(url, key, {
+                    supabaseClient = window.supabase.createClient(DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_KEY, {
                         auth: {
                             persistSession: true,
                             autoRefreshToken: true,
@@ -765,7 +704,7 @@
             if (el) el.textContent = text;
         }
 
-        function useLocalMode(showMessage = false) {
+        function useLocalMode(showMessage) {
             currentUser = null;
             localStorage.setItem(STORAGE_KEYS.localOnly, 'true');
             if (document.getElementById('localModeToggle')) {
@@ -798,12 +737,12 @@
 
         function normalizeDateToIso(rawDate) {
             if (!rawDate) return null;
-            const mdy = String(rawDate).match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            const mdy = String(rawDate).match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/);
             if (mdy) {
                 const [, m, d, y] = mdy;
                 return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
             }
-            const ymd = String(rawDate).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+            const ymd = String(rawDate).match(/\b(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\b/);
             if (ymd) {
                 const [, y, m, d] = ymd;
                 return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
@@ -812,9 +751,7 @@
         }
 
         function normalizeText(text) {
-            return (text || '').replace(/
-/g, '
-').replace(/\s+/g, ' ').trim();
+            return (text || '').replace(/\r/g, '\n').replace(/\s+/g, ' ').trim();
         }
 
         function findBestMatch(line, patterns) {
@@ -829,9 +766,6 @@
             return [...String(line).matchAll(/(?<!\d)([0-9][0-9,]*\.\d{2})(?!\d)/g)].map(m => parseCurrencyValue(m[1]));
         }
 
-        // =========================================================================
-        // PDF LINE-BY-LINE EXTRACTION
-        // =========================================================================
         async function extractPdfPagesWithLines(file) {
             if (!window.pdfjsLib) {
                 const ready = await ensurePdfJsLoaded();
@@ -869,17 +803,13 @@
                 pages.push({
                     pageNumber,
                     lines,
-                    fullText: lines.join('
-')
+                    fullText: lines.join('\n')
                 });
             }
 
             return pages;
         }
 
-        // =========================================================================
-        // COMPUCOM CANADA CO. MULTI-PAGE PAYSLIP PARSER
-        // =========================================================================
         function parseCompuComPages(pages) {
             const parsedStubs = [];
 
@@ -899,7 +829,7 @@
 
                 if (headerIdx !== -1 && lines[headerIdx + 1]) {
                     const valLine = lines[headerIdx + 1];
-                    const dates = [...valLine.matchAll(/(\d{2}\/\d{2}\/\d{4})/g)].map(m =>
+                    const dates = [...valLine.matchAll(/\b(\d{2}\/\d{2}\/\d{4})\b/g)].map(m =>
                         normalizeDateToIso(m[1])
                     );
 
@@ -921,7 +851,7 @@
                 }
 
                 if (!checkDate) {
-                    const allDates = [...page.fullText.matchAll(/(\d{2}\/\d{2}\/\d{4})/g)].map(m =>
+                    const allDates = [...page.fullText.matchAll(/\b(\d{2}\/\d{2}\/\d{4})\b/g)].map(m =>
                         normalizeDateToIso(m[1])
                     );
                     if (allDates.length >= 3) {
@@ -941,13 +871,13 @@
                 let ytdNet = null;
 
                 for (const line of lines) {
-                    if (/^Current/i.test(line)) {
+                    if (/^Current\b/i.test(line)) {
                         const nums = extractAmountsFromLine(line);
                         if (nums.length >= 4) {
                             [gross, employeeTaxes, deductions, net] = nums;
                         }
                     }
-                    if (/^YTD/i.test(line)) {
+                    if (/^YTD\b/i.test(line)) {
                         const nums = extractAmountsFromLine(line);
                         if (nums.length >= 4) {
                             [ytdGross, ytdTaxes, ytdDeductions, ytdNet] = nums;
@@ -1144,8 +1074,7 @@
                 await page.render({ canvasContext: context, viewport }).promise;
 
                 const { data } = await window.Tesseract.recognize(canvas, 'eng');
-                allText += (data.text || '') + '
-';
+                allText += (data.text || '') + '\n';
             }
 
             return allText;
@@ -1201,15 +1130,21 @@
             historyBody.innerHTML = '';
 
             payHistory.forEach((row, index) => {
-                historyBody.innerHTML += `
-                    <tr>
-                        <td>${row.date}</td>
-                        <td>${formatCurrency(row.gross)}</td>
-                        <td>${formatCurrency(row.net)}</td>
-                        <td>${formatCurrency(row.mileage)}</td>
-                        <td><button type="button" class="small-btn" onclick="deleteRecord(${index})">X</button></td>
-                    </tr>
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row.date}</td>
+                    <td>${formatCurrency(row.gross)}</td>
+                    <td>${formatCurrency(row.net)}</td>
+                    <td>${formatCurrency(row.mileage)}</td>
+                    <td></td>
                 `;
+                const delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.className = 'small-btn';
+                delBtn.textContent = 'X';
+                delBtn.addEventListener('click', () => deleteRecord(index));
+                tr.lastElementChild.appendChild(delBtn);
+                historyBody.appendChild(tr);
             });
         }
 
@@ -1258,11 +1193,9 @@
         }
 
         function exportHistory() {
-            let csv = 'Date,Gross,Net,Mileage
-';
+            let csv = 'Date,Gross,Net,Mileage\n';
             payHistory.forEach(r => {
-                csv += `${r.date},${r.gross},${r.net},${r.mileage}
-`;
+                csv += `${r.date},${r.gross},${r.net},${r.mileage}\n`;
             });
 
             const blob = new Blob([csv], { type: 'text/csv' });
@@ -1272,9 +1205,6 @@
             a.click();
         }
 
-        // =========================================================================
-        // PERSIST PARSED PAYSTUBS TO SUPABASE (`public.payslips`) BY USER_ID
-        // =========================================================================
         async function upsertPayslipsToSupabase(stubList) {
             if (!supabaseClient) return null;
             const { data: { user }, error: authErr } = await supabaseClient.auth.getUser();
@@ -1372,8 +1302,7 @@
                     extractedStubs = parseCompuComPages(pages);
 
                     if (extractedStubs.length === 0) {
-                        const combinedText = pages.map(p => p.fullText).join('
-');
+                        const combinedText = pages.map(p => p.fullText).join('\n');
                         if (combinedText.trim().length > 20) {
                             const fallback = extractPaystubFieldsFromText(combinedText);
                             if (fallback.gross || fallback.net) extractedStubs = [fallback];
@@ -1389,7 +1318,7 @@
                     throw new Error('Could not detect paystub values. Try a clearer PDF or image.');
                 }
 
-                statusEl.textContent = `Parsed ${extractedStubs.length} paystub(s). Syncing to cloud...`;
+                statusEl.textContent = `Parsed ${extractedStubs.length} paystub(s). Syncing...`;
 
                 if (supabaseClient && !isLocalOnlyRequested()) {
                     await upsertPayslipsToSupabase(extractedStubs);
@@ -1461,9 +1390,6 @@
             }
         }
 
-        // =========================================================================
-        // TAX LEARNING ENGINE (Drives Estimated Net directly from uploaded stubs)
-        // =========================================================================
         function updateTaxLearning() {
             const validStubs = paystubs.filter(stub => Number(stub.gross) > 0);
             const badge = document.getElementById('tabStubBadge');
@@ -1500,7 +1426,6 @@
                 totalTax += tax;
             });
 
-            // Weighted effective deduction rate across all uploaded stubs
             const weightedRate = totalGross > 0 ? (totalTax / totalGross) * 100 : (totalRate / validStubs.length);
             activeEffectiveTaxRate = Number(weightedRate.toFixed(2));
             settings.taxRate = activeEffectiveTaxRate;
@@ -1530,17 +1455,23 @@
                     ? `${stub.pay_period_start} → ${stub.pay_period_end}`
                     : '—';
 
-                paystubHistory.innerHTML += `
-                    <tr>
-                        <td>${stub.check_date || stub.date || '—'}</td>
-                        <td>${periodLabel}</td>
-                        <td>${formatCurrency(gross)}</td>
-                        <td>${formatCurrency(net)}</td>
-                        <td>${formatCurrency(tax)}</td>
-                        <td>${rate.toFixed(2)}%</td>
-                        <td><button type="button" class="small-btn" onclick="deletePaystub(${index})">X</button></td>
-                    </tr>
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${stub.check_date || stub.date || '—'}</td>
+                    <td>${periodLabel}</td>
+                    <td>${formatCurrency(gross)}</td>
+                    <td>${formatCurrency(net)}</td>
+                    <td>${formatCurrency(tax)}</td>
+                    <td>${rate.toFixed(2)}%</td>
+                    <td></td>
                 `;
+                const delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.className = 'small-btn';
+                delBtn.textContent = 'X';
+                delBtn.addEventListener('click', () => deletePaystub(index));
+                tr.lastElementChild.appendChild(delBtn);
+                paystubHistory.appendChild(tr);
             });
         }
 
@@ -1597,11 +1528,10 @@
             if (document.getElementById('localModeToggle')) {
                 document.getElementById('localModeToggle').checked = false;
             }
-            saveSupabaseConfig();
 
             const loaded = await ensureSupabaseLoaded();
             if (!loaded) {
-                alert('Could not initialize Supabase client. Check URL and key.');
+                alert('Could not initialize Supabase client.');
                 return;
             }
 
@@ -1622,11 +1552,10 @@
             if (document.getElementById('localModeToggle')) {
                 document.getElementById('localModeToggle').checked = false;
             }
-            saveSupabaseConfig();
 
             const loaded = await ensureSupabaseLoaded();
             if (!loaded) {
-                alert('Could not initialize Supabase client. Check URL and key.');
+                alert('Could not initialize Supabase client.');
                 return;
             }
 
@@ -1657,7 +1586,11 @@
         }
 
         async function checkSession() {
-            const { localOnly } = loadConfigFromStorage();
+            const localOnly = localStorage.getItem(STORAGE_KEYS.localOnly) === 'true';
+            if (document.getElementById('localModeToggle')) {
+                document.getElementById('localModeToggle').checked = localOnly;
+            }
+
             if (localOnly) {
                 useLocalMode(false);
                 return;
@@ -1690,9 +1623,6 @@
             }
         }
 
-        // =========================================================================
-        // EXPLICIT SYNC BUTTON HANDLER (Fixes silent click & displays status)
-        // =========================================================================
         async function syncNowHandler() {
             const btn = document.getElementById('syncNowBtn');
             const originalLabel = btn ? btn.textContent : 'Sync Now';
@@ -1703,7 +1633,7 @@
 
             try {
                 if (isLocalOnlyRequested()) {
-                    updateAccountStatus('Local-only mode active — sign out and sign in with Supabase to cloud sync');
+                    updateAccountStatus('Local-only mode active — sign out and sign in to cloud sync');
                     return;
                 }
 
@@ -1720,7 +1650,6 @@
                     return;
                 }
 
-                // If local stubs exist that are not yet in Supabase, push them up first
                 if (paystubs.length > 0) {
                     await upsertPayslipsToSupabase(paystubs);
                 }
@@ -1739,7 +1668,7 @@
             }
         }
 
-        async function loadUserData(showAlert = false) {
+        async function loadUserData(showAlert) {
             if (supabaseClient && !isLocalOnlyRequested()) {
                 const { data: { user }, error: authErr } = await supabaseClient.auth.getUser();
                 if (authErr || !user) {
@@ -1789,7 +1718,11 @@
             updateTaxLearning();
         }
 
-        // Save hours whenever user types in the calculator inputs
+        function bindEvent(id, eventName, handler) {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener(eventName, handler);
+        }
+
         HOUR_INPUT_IDS.forEach(id => {
             const el = document.getElementById(id);
             if (el) {
@@ -1801,14 +1734,57 @@
         });
 
         document.querySelectorAll('input').forEach(input => {
-            if (input.id !== 'supabaseUrl' && input.id !== 'supabaseKey' && !HOUR_INPUT_IDS.includes(input.id)) {
+            if (!HOUR_INPUT_IDS.includes(input.id)) {
                 input.addEventListener('input', calculatePayroll);
             }
         });
 
-        loadConfigFromStorage();
-        loadSavedHours();
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+        });
 
+        bindEvent('signUpBtn', 'click', signUp);
+        bindEvent('signInBtn', 'click', signIn);
+        bindEvent('localModeBtn', 'click', () => useLocalMode(true));
+        bindEvent('syncNowBtn', 'click', syncNowHandler);
+        bindEvent('signOutBtn', 'click', signOut);
+        bindEvent('saveSettingsBtn', 'click', saveCompensationSettings);
+        bindEvent('savePayPeriodBtn', 'click', savePayPeriod);
+        bindEvent('clearHoursBtn', 'click', clearHoursInputs);
+        bindEvent('resetHoursDialogBtn', 'click', clearHoursInputs);
+        bindEvent('exportHistoryBtn', 'click', exportHistory);
+        bindEvent('processUploadBtn', 'click', processPaystubPdfUpload);
+        bindEvent('saveActualStubBtn', 'click', saveActualPaystub);
+
+        bindEvent('openUploadFromTab', 'click', () => {
+            const d = document.getElementById('uploadDialog');
+            if (d && !d.open) d.showModal();
+        });
+        bindEvent('openActualFromTab', 'click', () => {
+            const d = document.getElementById('actualDialog');
+            if (d && !d.open) d.showModal();
+        });
+
+        [
+            ['openSettings', 'settingsDialog'],
+            ['openCalculator', 'calculatorDialog'],
+            ['openUpload', 'uploadDialog'],
+            ['openActual', 'actualDialog']
+        ].forEach(([buttonId, dialogId]) => {
+            bindEvent(buttonId, 'click', () => {
+                const dialog = document.getElementById(dialogId);
+                if (dialog && !dialog.open) dialog.showModal();
+            });
+        });
+
+        document.querySelectorAll('[data-close-dialog]').forEach(button => {
+            button.addEventListener('click', () => {
+                const dialog = button.closest('dialog');
+                if (dialog) dialog.close();
+            });
+        });
+
+        loadSavedHours();
         document.getElementById('hourlyRate').value = settings.regularRate;
         document.getElementById('otMultiplier').value = settings.otMultiplier;
         document.getElementById('dtMultiplier').value = settings.dtMultiplier;
@@ -1817,26 +1793,11 @@
         document.getElementById('weekendAvailabilityRate').value = settings.weekendAvailabilityRate;
         document.getElementById('taxRate').value = settings.taxRate;
 
-        [
-            ['openSettings', 'settingsDialog'],
-            ['openCalculator', 'calculatorDialog'],
-            ['openUpload', 'uploadDialog'],
-            ['openActual', 'actualDialog']
-        ].forEach(([buttonId, dialogId]) => {
-            document.getElementById(buttonId).addEventListener('click', () => {
-                const dialog = document.getElementById(dialogId);
-                if (!dialog.open) dialog.showModal();
-            });
-        });
-
-        document.querySelectorAll('[data-close-dialog]').forEach(button => {
-            button.addEventListener('click', () => button.closest('dialog').close());
-        });
-
         checkSession();
         calculatePayroll();
         renderHistory();
         updateTaxLearning();
+    })();
     </script>
 </body>
 </html>
